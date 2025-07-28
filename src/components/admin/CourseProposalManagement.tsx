@@ -11,16 +11,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Checkbox } from "@/components/ui/checkbox";
 import { Trash2, Plus, Edit, Eye, Search } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import type { Course, Teacher } from "@/types";
 
-interface CourseWithProposals {
-  id: number;
-  title: string;
-  code: string;
-  faculty: string;
-  subcategory?: string;
-  volume_total_vol1: number;
-  volume_total_vol2: number;
-  vacant: boolean;
+interface CourseWithProposals extends Course {
   assignments: any[];
   proposals: any[];
 }
@@ -29,7 +22,7 @@ export const CourseProposalManagement = () => {
   const [selectedCourse, setSelectedCourse] = useState<CourseWithProposals | null>(null);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [assignments, setAssignments] = useState<any[]>([]);
-  const [teachers, setTeachers] = useState<any[]>([]);
+  const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const { toast } = useToast();

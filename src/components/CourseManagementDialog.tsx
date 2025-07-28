@@ -102,7 +102,7 @@ export const CourseManagementDialog = ({
     setAssignments(prev => [...prev, newAssignment]);
   };
 
-  const updateAssignment = (index: number, field: keyof CourseAssignment, value: any) => {
+  const updateAssignment = (index: number, field: keyof CourseAssignment, value: string | number | boolean) => {
     setAssignments(prev => prev.map((assignment, i) => 
       i === index ? { ...assignment, [field]: value } : assignment
     ));

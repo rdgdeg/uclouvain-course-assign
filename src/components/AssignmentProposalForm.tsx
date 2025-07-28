@@ -13,15 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Trash2, Plus, Search, AlertTriangle, Send } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Teacher, Course } from "@/hooks/useCourses";
-
-interface TeacherAssignment {
-  teacher_id: number;
-  teacher_name: string;
-  teacher_email: string;
-  is_coordinator: boolean;
-  vol1_hours: number;
-  vol2_hours: number;
-}
+import type { TeacherAssignment, ProposalData } from "@/types";
 
 interface AssignmentProposalFormProps {
   course: Course;
@@ -95,11 +87,18 @@ export const AssignmentProposalForm = ({
       course_id: number;
       submitter_name: string;
       submitter_email: string;
-      proposal_data: any;
+      proposal_data: ProposalData;
     }) => {
       const { data, error } = await supabase
         .from('assignment_proposals')
-        .insert([proposalData])
+        .insert([{
+          course_id: proposalData.course_id,
+          submitter_name: proposalData.submitter_name,
+          submitter_email: proposalData.submitter_email,
+          proposal_data: proposalData.proposal_data as any,
+          status: 'pending',
+          submission_date: new Date().toISOString()
+        }])
         .select()
         .single();
       if (error) throw error;
@@ -166,7 +165,7 @@ export const AssignmentProposalForm = ({
     setAssignments(prev => [...prev, newAssignment]);
   };
 
-  const updateAssignment = (index: number, field: keyof TeacherAssignment, value: any) => {
+  const updateAssignment = (index: number, field: keyof TeacherAssignment, value: string | number | boolean) => {
     setAssignments(prev => prev.map((assignment, i) => 
       i === index ? { ...assignment, [field]: value } : assignment
     ));

@@ -3,7 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, BookOpen, Users, MessageSquare, PlusCircle } from "lucide-react";
+import { Search, BookOpen, Users, MessageSquare, PlusCircle, ChevronDown, ChevronUp, Menu } from "lucide-react";
 import { Header } from "@/components/Header";
 import { CourseCard } from "@/components/CourseCard";
 import { CourseListView } from "@/components/CourseListView";
@@ -15,6 +15,21 @@ import { useCourses } from "@/hooks/useCourses";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { FreeCourseProposalForm } from "@/components/admin/FreeCourseProposalForm";
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuTrigger 
+} from "@/components/ui/dropdown-menu";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 
 const PublicIndex = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -23,7 +38,13 @@ const PublicIndex = () => {
   const [view, setView] = useState<'cards' | 'list'>('cards');
   const [selectedCourse, setSelectedCourse] = useState<any>(null);
   const [showProposalForm, setShowProposalForm] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [showActionsMenu, setShowActionsMenu] = useState(false);
+  const [showModificationForm, setShowModificationForm] = useState(false);
+  const [showFreeProposalForm, setShowFreeProposalForm] = useState(false);
   const { courses, loading, fetchCourses } = useCourses();
+
+  const COURSES_PER_PAGE = 10;
 
   // Récupérer les cours avec propositions en attente pour les masquer
   const { data: pendingProposals = [] } = useQuery({
@@ -68,10 +89,21 @@ const PublicIndex = () => {
     return matchesSearch && matchesFaculty && matchesSubcategory;
   });
 
+  // Pagination
+  const totalPages = Math.ceil(filteredCourses.length / COURSES_PER_PAGE);
+  const startIndex = (currentPage - 1) * COURSES_PER_PAGE;
+  const endIndex = startIndex + COURSES_PER_PAGE;
+  const currentCourses = filteredCourses.slice(startIndex, endIndex);
+
   const handleProposalSuccess = () => {
     fetchCourses();
     setSelectedCourse(null);
     setShowProposalForm(false);
+  };
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   return (
@@ -79,82 +111,94 @@ const PublicIndex = () => {
       <Header showAdminButton={true} />
       
       <main className="container mx-auto px-4 py-8">
-        {/* En-tête avec titre et actions principales */}
+        {/* En-tête avec titre et menu d'actions */}
         <div className="mb-8">
           <h1 className="text-4xl font-bold text-primary mb-2">
             Portail de Gestion des Cours
           </h1>
-          <p className="text-muted-foreground mb-8">
+          <p className="text-muted-foreground mb-6">
             Année académique 2024-2025
           </p>
           
-          {/* Actions principales */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <Card className="cursor-pointer hover:shadow-lg transition-shadow">
-              <CardContent className="p-6">
-                <div className="flex items-center mb-4">
-                  <PlusCircle className="h-8 w-8 text-green-600 mr-4" />
-                  <div>
-                    <h3 className="text-xl font-semibold">Proposer une équipe</h3>
-                    <p className="text-sm text-muted-foreground">
-                      Pour un cours vacant
-                    </p>
+          {/* Menu d'actions principales */}
+          <div className="flex flex-col sm:flex-row gap-4 mb-8">
+            <DropdownMenu open={showActionsMenu} onOpenChange={setShowActionsMenu}>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="w-full sm:w-auto">
+                  <Menu className="h-4 w-4 mr-2" />
+                  Actions disponibles
+                  {showActionsMenu ? (
+                    <ChevronUp className="h-4 w-4 ml-2" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4 ml-2" />
+                  )}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-80">
+                <DropdownMenuItem 
+                  className="flex items-start p-4 cursor-pointer"
+                  onClick={() => setShowActionsMenu(false)}
+                >
+                  <div className="flex items-start">
+                    <PlusCircle className="h-6 w-6 text-green-600 mr-3 mt-1" />
+                    <div>
+                      <h3 className="font-semibold">Proposer une équipe</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Pour un cours vacant de la liste
+                      </p>
+                    </div>
                   </div>
-                </div>
-                <p className="text-muted-foreground mb-4">
-                  Proposez une équipe pédagogique pour un cours actuellement vacant. 
-                  Renseignez les enseignants et la répartition des heures.
-                </p>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center text-sm text-muted-foreground">
-                    <BookOpen className="h-4 w-4 mr-1" />
-                    {availableCourses.length} cours disponibles
+                </DropdownMenuItem>
+                
+                <DropdownMenuItem 
+                  className="flex items-start p-4 cursor-pointer"
+                  onClick={() => {
+                    setShowActionsMenu(false);
+                    setShowModificationForm(true);
+                  }}
+                >
+                  <div className="flex items-start">
+                    <MessageSquare className="h-6 w-6 text-blue-600 mr-3 mt-1" />
+                    <div>
+                      <h3 className="font-semibold">Demander une modification</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Pour un cours existant
+                      </p>
+                    </div>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
+                </DropdownMenuItem>
+                
+                <DropdownMenuItem 
+                  className="flex items-start p-4 cursor-pointer"
+                  onClick={() => {
+                    setShowActionsMenu(false);
+                    setShowFreeProposalForm(true);
+                  }}
+                >
+                  <div className="flex items-start">
+                    <PlusCircle className="h-6 w-6 text-purple-600 mr-3 mt-1" />
+                    <div>
+                      <h3 className="font-semibold">Candidature libre</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Pour un cours non répertorié
+                      </p>
+                    </div>
+                  </div>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
 
-            <Card className="cursor-pointer hover:shadow-lg transition-shadow">
-              <CardContent className="p-6">
-                <div className="flex items-center mb-4">
-                  <MessageSquare className="h-8 w-8 text-blue-600 mr-4" />
-                  <div>
-                    <h3 className="text-xl font-semibold">Demander une modification</h3>
-                    <p className="text-sm text-muted-foreground">
-                      Pour un cours existant
-                    </p>
-                  </div>
-                </div>
-                <p className="text-muted-foreground mb-4">
-                  Demandez une modification sur un cours déjà attribué : 
-                  changement d'enseignant, d'horaires, de contenu, etc.
-                </p>
-                <div className="flex justify-end">
-                  <ModificationRequestForm />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="cursor-pointer hover:shadow-lg transition-shadow">
-              <CardContent className="p-6">
-                <div className="flex items-center mb-4">
-                  <PlusCircle className="h-8 w-8 text-purple-600 mr-4" />
-                  <div>
-                    <h3 className="text-xl font-semibold">Candidature libre</h3>
-                    <p className="text-sm text-muted-foreground">
-                      Pour un cours non répertorié
-                    </p>
-                  </div>
-                </div>
-                <p className="text-muted-foreground mb-4">
-                  Proposez une équipe pour un cours qui n'est pas dans la liste. 
-                  Renseignez les informations du cours et de l'équipe.
-                </p>
-                <div className="flex justify-end">
-                  <FreeCourseProposalForm />
-                </div>
-              </CardContent>
-            </Card>
+            {/* Statistiques rapides */}
+            <div className="flex gap-4 text-sm text-muted-foreground">
+              <div className="flex items-center">
+                <BookOpen className="h-4 w-4 mr-1" />
+                {availableCourses.length} cours disponibles
+              </div>
+              <div className="flex items-center">
+                <Users className="h-4 w-4 mr-1" />
+                {pendingProposals.length} propositions en attente
+              </div>
+            </div>
           </div>
         </div>
 
@@ -162,7 +206,7 @@ const PublicIndex = () => {
         <div className="mb-6">
           <h2 className="text-2xl font-semibold mb-4">Cours vacants disponibles</h2>
           
-          {/* Statistiques */}
+          {/* Statistiques détaillées */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             <Card>
               <CardContent className="flex items-center p-6">
@@ -189,7 +233,7 @@ const PublicIndex = () => {
                 <MessageSquare className="h-8 w-8 text-orange-600 mr-4" />
                 <div>
                   <p className="text-2xl font-bold">
-                    {courses.filter(c => !c.vacant && c.assignments.length > 0).length}
+                    {courses.filter(c => !c.vacant && c.assignments?.length > 0).length}
                   </p>
                   <p className="text-sm text-muted-foreground">Cours attribués</p>
                 </div>
@@ -217,6 +261,7 @@ const PublicIndex = () => {
                 onValueChange={(value) => {
                   setFacultyFilter(value);
                   setSubcategoryFilter("all");
+                  setCurrentPage(1);
                 }}
               >
                 <SelectTrigger className="w-full md:w-48">
@@ -233,7 +278,13 @@ const PublicIndex = () => {
               </Select>
 
               {getSubcategoryOptions().length > 0 && (
-                <Select value={subcategoryFilter} onValueChange={setSubcategoryFilter}>
+                <Select 
+                  value={subcategoryFilter} 
+                  onValueChange={(value) => {
+                    setSubcategoryFilter(value);
+                    setCurrentPage(1);
+                  }}
+                >
                   <SelectTrigger className="w-full md:w-48">
                     <SelectValue placeholder="Sous-catégorie" />
                   </SelectTrigger>
@@ -253,7 +304,7 @@ const PublicIndex = () => {
           </div>
         </div>
 
-        {/* Liste des cours */}
+        {/* Liste des cours avec pagination */}
         {loading ? (
           <div className="text-center py-12">
             <p>Chargement des cours...</p>
@@ -261,8 +312,8 @@ const PublicIndex = () => {
         ) : (
           <>
             {view === 'cards' ? (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {filteredCourses.map((course) => (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                {currentCourses.map((course) => (
                   <CourseCard
                     key={course.id}
                     course={course}
@@ -278,8 +329,8 @@ const PublicIndex = () => {
                 ))}
               </div>
             ) : (
-              <div className="space-y-4">
-                {filteredCourses.map((course) => (
+              <div className="space-y-4 mb-6">
+                {currentCourses.map((course) => (
                   <div key={course.id} className="flex items-center gap-4 p-4 border rounded-lg">
                     <div className="flex-1">
                       <h3 className="font-semibold">{course.title}</h3>
@@ -304,6 +355,47 @@ const PublicIndex = () => {
                     </Button>
                   </div>
                 ))}
+              </div>
+            )}
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <Pagination className="mb-6">
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious 
+                      onClick={() => handlePageChange(currentPage - 1)}
+                      className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                    />
+                  </PaginationItem>
+                  
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                    <PaginationItem key={page}>
+                      <PaginationLink
+                        isActive={currentPage === page}
+                        onClick={() => handlePageChange(page)}
+                        className="cursor-pointer"
+                      >
+                        {page}
+                      </PaginationLink>
+                    </PaginationItem>
+                  ))}
+                  
+                  <PaginationItem>
+                    <PaginationNext 
+                      onClick={() => handlePageChange(currentPage + 1)}
+                      className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
+            )}
+
+            {/* Informations de pagination */}
+            {filteredCourses.length > 0 && (
+              <div className="text-center text-sm text-muted-foreground mb-6">
+                Affichage de {startIndex + 1} à {Math.min(endIndex, filteredCourses.length)} 
+                sur {filteredCourses.length} cours
               </div>
             )}
           </>
@@ -334,6 +426,12 @@ const PublicIndex = () => {
           onSuccess={handleProposalSuccess}
         />
       )}
+
+      {/* Formulaire de demande de modification */}
+      <ModificationRequestForm />
+
+      {/* Formulaire de candidature libre */}
+      <FreeCourseProposalForm />
     </div>
   );
 };

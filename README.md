@@ -1,75 +1,104 @@
-# Welcome to your Lovable project
+# ATTRIB - Gestion des Cours Vacants UCLouvain
 
-## Project info
+## 🎯 Description
 
-**URL**: https://lovable.dev/projects/851e4421-6a07-4dec-8e75-ef0e38ecd102
+Application de gestion des cours vacants pour l'UCLouvain, permettant aux enseignants de soumettre des candidatures et aux administrateurs de gérer les attributions de cours.
 
-## How can I edit this code?
+## 🚀 Déploiement
 
-There are several ways of editing your application.
+### Déploiement sur Vercel (Recommandé)
 
-**Use Lovable**
-
-Simply visit the [Lovable Project](https://lovable.dev/projects/851e4421-6a07-4dec-8e75-ef0e38ecd102) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+1. **Installer Vercel CLI :**
+```bash
+npm install -g vercel
 ```
 
-**Edit a file directly in GitHub**
+2. **Se connecter à Vercel :**
+```bash
+vercel login
+```
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+3. **Déployer :**
+```bash
+vercel --prod
+```
 
-**Use GitHub Codespaces**
+4. **Configurer les variables d'environnement :**
+```bash
+vercel env add VITE_SUPABASE_URL
+vercel env add VITE_SUPABASE_ANON_KEY
+vercel env add VITE_RESEND_API_KEY
+```
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+### Déploiement local
 
-## What technologies are used for this project?
+```bash
+# Installer les dépendances
+npm install
 
-This project is built with:
+# Lancer en mode développement
+npm run dev
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-- Supabase (Backend & Database)
-- Resend (Email Service)
+# Build pour production
+npm run build
 
-## How can I deploy this project?
+# Prévisualiser le build
+npm run preview
+```
 
-Simply open [Lovable](https://lovable.dev/projects/851e4421-6a07-4dec-8e75-ef0e38ecd102) and click on Share -> Publish.
+## 🛠️ Technologies
 
-## Can I connect a custom domain to my Lovable project?
+- **Frontend :** React 18 + TypeScript + Vite
+- **UI :** shadcn/ui + Tailwind CSS + Radix UI
+- **Backend :** Supabase (base de données + authentification)
+- **Email :** Resend
+- **État :** TanStack Query
+- **Routing :** React Router DOM
 
-Yes, you can!
+## 📁 Structure du projet
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+```
+src/
+├── components/          # Composants React
+│   ├── admin/          # Interface d'administration
+│   └── ui/             # Composants UI réutilisables
+├── hooks/              # Hooks personnalisés
+├── pages/              # Pages de l'application
+├── types/              # Types TypeScript
+├── utils/              # Utilitaires
+└── integrations/       # Intégrations externes
+```
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+## 🔧 Configuration
+
+### Variables d'environnement
+
+Créez un fichier `.env.local` :
+
+```env
+VITE_SUPABASE_URL=votre_url_supabase
+VITE_SUPABASE_ANON_KEY=votre_clé_anon_supabase
+VITE_RESEND_API_KEY=votre_clé_resend
+```
+
+## 📝 Fonctionnalités
+
+- ✅ Gestion des cours vacants
+- ✅ Interface d'administration
+- ✅ Système de candidatures
+- ✅ Validation des volumes horaires
+- ✅ Notifications par email
+- ✅ Filtres et recherche avancés
+- ✅ Responsive design
+
+## 🤝 Contribution
+
+1. Fork le projet
+2. Créer une branche feature (`git checkout -b feature/AmazingFeature`)
+3. Commit les changements (`git commit -m 'Add some AmazingFeature'`)
+4. Push vers la branche (`git push origin feature/AmazingFeature`)
+5. Ouvrir une Pull Request
+
+## 📄 Licence
+
+Ce projet est sous licence MIT. Voir le fichier `LICENSE` pour plus de détails.

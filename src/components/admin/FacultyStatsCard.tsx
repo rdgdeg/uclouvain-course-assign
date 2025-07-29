@@ -1,7 +1,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Course } from "@/hooks/useCourses";
+import { Course } from "@/types/index";
 import { GraduationCap, AlertTriangle, CheckCircle, Clock } from "lucide-react";
 
 interface FacultyStatsCardProps {
@@ -13,8 +13,8 @@ interface FacultyStatsCardProps {
 export const FacultyStatsCard = ({ faculty, courses, onViewCourses }: FacultyStatsCardProps) => {
   const totalCourses = courses.length;
   const vacantCourses = courses.filter(c => c.vacant).length;
-  const assignedCourses = courses.filter(c => !c.vacant && c.assignments.length > 0).length;
-  const coursesWithIssues = courses.filter(c => !c.vacant && c.assignments.length === 0).length;
+  const assignedCourses = courses.filter(c => !c.vacant && c.assignments && c.assignments.length > 0).length;
+  const coursesWithIssues = courses.filter(c => !c.vacant && (!c.assignments || c.assignments.length === 0)).length;
 
   const completionRate = totalCourses > 0 ? Math.round((assignedCourses / totalCourses) * 100) : 0;
 

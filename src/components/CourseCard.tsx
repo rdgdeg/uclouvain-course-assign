@@ -3,8 +3,8 @@ import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Calendar, Clock, Users, AlertTriangle, CheckCircle, GraduationCap, PlusCircle } from "lucide-react";
-import { Course } from "@/hooks/useCourses";
+import { Calendar, Clock, Users, AlertTriangle, CheckCircle, GraduationCap, PlusCircle, ChevronDown, ChevronRight, UserCheck, UserX } from "lucide-react";
+import { Course } from "@/types/index";
 import { CourseManagementDialog } from "./CourseManagementDialog";
 
 interface CourseCardProps {
@@ -14,6 +14,7 @@ interface CourseCardProps {
   validateHourDistribution: (course: Course) => { isValid: boolean; message?: string };
   isAdmin?: boolean;
   onProposeTeam?: () => void;
+  onFacultyFilter?: (faculty: string) => void;
 }
 
 export const CourseCard = ({ 
@@ -22,24 +23,31 @@ export const CourseCard = ({
   onCourseUpdate, 
   validateHourDistribution,
   isAdmin = false,
-  onProposeTeam
+  onProposeTeam,
+  onFacultyFilter
 }: CourseCardProps) => {
   const [showManagement, setShowManagement] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
   const validation = validateHourDistribution(course);
 
   const getStatusColor = () => {
-    if (course.vacant) return "bg-accent text-accent-foreground";
-    return course.assignments.length > 0 ? "bg-green-500 text-white" : "bg-orange-500 text-white";
+    if (course.vacant) return "bg-red-500 text-white";
+    return course.assignments && course.assignments.length > 0 ? "bg-green-500 text-white" : "bg-orange-500 text-white";
   };
 
   const getStatusLabel = () => {
     if (course.vacant) return "Vacant";
-    return course.assignments.length > 0 ? "Attribué" : "En attente";
+    return course.assignments && course.assignments.length > 0 ? "Attribué" : "En attente";
+  };
+
+  const getCardStyle = () => {
+    if (course.vacant) return "border-2 border-green-200 bg-green-50/30";
+    return course.assignments && course.assignments.length > 0 ? "border-2 border-gray-200 bg-gray-50/30" : "border-2 border-orange-200 bg-orange-50/30";
   };
 
   return (
     <>
-      <Card className="hover:shadow-md transition-shadow">
+      <Card className={`hover:shadow-md transition-shadow h-full flex flex-col ${getCardStyle()}`}>
         <CardHeader>
           <div className="flex justify-between items-start">
             <div>
@@ -48,15 +56,22 @@ export const CourseCard = ({
             </div>
             <div className="flex gap-2">
               <Badge className={getStatusColor()}>
+                {course.vacant ? (
+                  <UserX className="h-3 w-3 mr-1" />
+                ) : course.assignments && course.assignments.length > 0 ? (
+                  <UserCheck className="h-3 w-3 mr-1" />
+                ) : (
+                  <Clock className="h-3 w-3 mr-1" />
+                )}
                 {getStatusLabel()}
               </Badge>
-              {!validation.isValid && (
+              {isAdmin && !validation.isValid && (
                 <Badge variant="destructive" className="flex items-center gap-1">
                   <AlertTriangle className="h-3 w-3" />
                   Volume incorrect
                 </Badge>
               )}
-              {validation.isValid && course.assignments.length > 0 && (
+              {isAdmin && validation.isValid && course.assignments && course.assignments.length > 0 && (
                 <Badge variant="outline" className="flex items-center gap-1 text-green-600 border-green-600">
                   <CheckCircle className="h-3 w-3" />
                   Volume OK
@@ -66,95 +81,141 @@ export const CourseCard = ({
           </div>
         </CardHeader>
         
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm mb-4">
-            <div className="flex items-center">
-              <Calendar className="h-4 w-4 mr-2 text-muted-foreground" />
-              <span>Début: {course.start_date ? new Date(course.start_date).toLocaleDateString('fr-FR') : 'Non défini'}</span>
+        <CardContent className="flex-1 flex flex-col">
+          {/* Section faculté cliquable - en haut */}
+          {course.faculty && (
+            <div className="mb-4">
+              <button
+                onClick={() => onFacultyFilter?.(course.faculty)}
+                className="inline-flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 transition-colors group"
+              >
+                <GraduationCap className="h-4 w-4 group-hover:scale-110 transition-transform" />
+                <Badge 
+                  variant="outline" 
+                  className="border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 cursor-pointer transition-colors"
+                >
+                  {course.faculty}
+                </Badge>
+              </button>
+            </div>
+          )}
+
+          {/* Informations de base - structure alignée */}
+          <div className="grid grid-cols-1 gap-4 mb-6">
+            {/* Ligne 1: Date et durée - alignées */}
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="flex items-center gap-2">
+                <Calendar className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                <div className="flex flex-col">
+                  <span className="font-medium text-xs text-muted-foreground">Début</span>
+                  <span className="text-sm">
+                    {course.start_date ? new Date(course.start_date).toLocaleDateString('fr-FR') : 'Non défini'}
+                  </span>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Clock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                <div className="flex flex-col">
+                  <span className="font-medium text-xs text-muted-foreground">Durée</span>
+                  <span className="text-sm">{course.duration_weeks || 0} semaines</span>
+                </div>
+              </div>
             </div>
             
-            <div className="flex items-center">
-              <Clock className="h-4 w-4 mr-2 text-muted-foreground" />
-              <span>Durée: {course.duration_weeks || 0} semaines</span>
-            </div>
-            
-            <div>
-              <span className="font-medium">Vol.1:</span> {course.volume_total_vol1}h
-            </div>
-            
-            <div>
-              <span className="font-medium">Vol.2:</span> {course.volume_total_vol2}h
+            {/* Ligne 2: Volumes - alignés */}
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 bg-blue-500 rounded flex-shrink-0"></div>
+                <div className="flex flex-col">
+                  <span className="font-medium text-xs text-muted-foreground">Volume 1</span>
+                  <span className="text-lg font-semibold text-blue-600">{course.volume_total_vol1}h</span>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 bg-green-500 rounded flex-shrink-0"></div>
+                <div className="flex flex-col">
+                  <span className="font-medium text-xs text-muted-foreground">Volume 2</span>
+                  <span className="text-lg font-semibold text-green-600">{course.volume_total_vol2}h</span>
+                </div>
+              </div>
             </div>
           </div>
 
-          {(course.faculty || course.subcategory) && (
-            <div className="flex items-center gap-2 mb-4">
-              <GraduationCap className="h-4 w-4 text-muted-foreground" />
-              <div className="flex gap-2">
-                {course.faculty && (
-                  <Badge variant="secondary">{course.faculty}</Badge>
-                )}
-                {course.subcategory && (
-                  <Badge variant="outline">{course.subcategory}</Badge>
-                )}
-              </div>
-            </div>
-          )}
-
-          {!validation.isValid && (
-            <div className="mb-4 p-3 bg-destructive/10 border border-destructive/20 rounded-md">
-              <p className="text-sm text-destructive font-medium flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4" />
-                {validation.message}
-              </p>
-            </div>
-          )}
-          
-          {course.assignments.length > 0 && (
-            <div className="mb-4 pt-4 border-t">
-              <p className="text-sm font-medium mb-2 flex items-center gap-2">
-                <Users className="h-4 w-4" />
-                Équipe pédagogique ({course.assignments.length}):
-              </p>
-              <div className="space-y-2">
-                {course.assignments.map((assignment) => (
-                  <div key={assignment.id} className="flex justify-between items-center text-sm">
-                    <Badge variant="outline">
-                      {assignment.teacher.first_name} {assignment.teacher.last_name}
-                      {assignment.is_coordinator && " (Coordinateur)"}
+          <div className="mt-auto pt-4">
+            {/* Accordéon pour les détails - seulement pour les erreurs de validation */}
+            {!validation.isValid && (
+              <div className="mb-4">
+                <button
+                  onClick={() => setShowDetails(!showDetails)}
+                  className="w-full flex items-center justify-between p-3 text-left bg-gray-50 hover:bg-gray-100 rounded-md transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4 text-destructive" />
+                    <span className="text-sm font-medium text-destructive">
+                      Problème de volume détecté
+                    </span>
+                    <Badge variant="destructive" className="text-xs">
+                      <AlertTriangle className="h-3 w-3 mr-1" />
+                      Volume incorrect
                     </Badge>
-                    <div className="text-muted-foreground">
-                      Vol.1: {assignment.vol1_hours}h | Vol.2: {assignment.vol2_hours}h
+                  </div>
+                  {showDetails ? (
+                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                  ) : (
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  )}
+                </button>
+                
+                {showDetails && (
+                  <div className="mt-3">
+                    <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-md">
+                      <p className="text-sm text-destructive font-medium flex items-center gap-2">
+                        <AlertTriangle className="h-4 w-4" />
+                        {validation.message}
+                      </p>
                     </div>
                   </div>
-                ))}
+                )}
               </div>
-            </div>
-          )}
-          
-          {isAdmin ? (
-            <div className="flex justify-between items-center">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => onStatusUpdate(course.id, !course.vacant)}
+            )}
+
+            {/* Section de validation */}
+            {isAdmin ? (
+              <div className="flex justify-between items-center">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onStatusUpdate(course.id, !course.vacant)}
+                >
+                  Marquer comme {course.vacant ? 'non vacant' : 'vacant'}
+                </Button>
+                
+                <Button onClick={() => setShowManagement(true)}>
+                  Gérer les attributions
+                </Button>
+              </div>
+            ) : course.vacant && onProposeTeam ? (
+              <Button 
+                onClick={onProposeTeam}
+                className="w-full bg-green-600 hover:bg-green-700 text-white shadow-lg"
               >
-                Marquer comme {course.vacant ? 'non vacant' : 'vacant'}
+                <PlusCircle className="h-4 w-4 mr-2" />
+                Proposer une équipe
               </Button>
-              
-              <Button onClick={() => setShowManagement(true)}>
-                Gérer les attributions
-              </Button>
-            </div>
-          ) : course.vacant && onProposeTeam && (
-            <Button 
-              onClick={onProposeTeam}
-              className="w-full bg-green-600 hover:bg-green-700 text-white"
-            >
-              <PlusCircle className="h-4 w-4 mr-2" />
-              Proposer une équipe
-            </Button>
-          )}
+            ) : !course.vacant && course.assignments && course.assignments.length > 0 ? (
+              <div className="text-center p-3 bg-gray-100 rounded-md">
+                <Users className="h-5 w-5 mx-auto mb-2 text-gray-500" />
+                <p className="text-sm text-gray-600 font-medium">Équipe attribuée</p>
+                <p className="text-xs text-gray-500">Ce cours n'est plus disponible</p>
+              </div>
+            ) : (
+              <div className="text-center p-3 bg-orange-100 rounded-md">
+                <Clock className="h-5 w-5 mx-auto mb-2 text-orange-500" />
+                <p className="text-sm text-orange-600 font-medium">En attente</p>
+                <p className="text-xs text-orange-500">Attribution en cours</p>
+              </div>
+            )}
+          </div>
         </CardContent>
       </Card>
 

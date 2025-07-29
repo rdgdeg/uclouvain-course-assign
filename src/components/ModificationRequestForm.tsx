@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { useEmail } from "@/hooks/useEmail";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { MessageSquare, Send } from "lucide-react";
 
@@ -33,6 +34,7 @@ export const ModificationRequestForm = ({ course }: ModificationRequestFormProps
   });
 
   const { toast } = useToast();
+  const { sendModificationRequestConfirmation, isSending } = useEmail();
 
   // Récupérer tous les cours si aucun cours n'est pré-sélectionné
   const { data: courses = [] } = useQuery({
@@ -64,7 +66,16 @@ export const ModificationRequestForm = ({ course }: ModificationRequestFormProps
       if (error) throw error;
       return data;
     },
-    onSuccess: () => {
+    onSuccess: async (data) => {
+      // Envoyer l'email de confirmation
+      const selectedCourse = course || courses.find(c => c.id.toString() === formData.course_id);
+      await sendModificationRequestConfirmation(
+        formData.requester_email,
+        formData.requester_name,
+        formData.modification_type,
+        selectedCourse?.title
+      );
+
       setIsOpen(false);
       resetForm();
       toast({
@@ -238,9 +249,9 @@ export const ModificationRequestForm = ({ course }: ModificationRequestFormProps
             <Button type="button" variant="outline" onClick={() => setIsOpen(false)}>
               Annuler
             </Button>
-            <Button type="submit" disabled={createRequestMutation.isPending}>
+            <Button type="submit" disabled={createRequestMutation.isPending || isSending}>
               <Send className="h-4 w-4 mr-2" />
-              {createRequestMutation.isPending ? "Envoi..." : "Envoyer la demande"}
+              {createRequestMutation.isPending || isSending ? "Envoi..." : "Envoyer la demande"}
             </Button>
           </div>
         </form>

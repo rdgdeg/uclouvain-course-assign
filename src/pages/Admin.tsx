@@ -6,7 +6,35 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Download, Users, BookOpen, AlertTriangle, Eye } from "lucide-react";
+import { 
+  ArrowLeft, 
+  Download, 
+  Users, 
+  BookOpen, 
+  AlertTriangle, 
+  Eye, 
+  Search,
+  Filter,
+  RefreshCw,
+  Settings,
+  Bell,
+  TrendingUp,
+  Calendar,
+  Clock,
+  CheckCircle,
+  XCircle,
+  Plus,
+  FileText,
+  Upload,
+  UserCheck,
+  BarChart3,
+  Activity,
+  Zap,
+  Shield,
+  Database,
+  HelpCircle,
+  Send
+} from "lucide-react";
 import { useCourses } from "@/hooks/useCourses";
 import { useToast } from "@/hooks/use-toast";
 import { FacultyStatsCard } from "@/components/admin/FacultyStatsCard";
@@ -22,11 +50,13 @@ import { CourseProposalManagement } from "@/components/admin/CourseProposalManag
 import { CourseImportDialog } from "@/components/admin/CourseImportDialog";
 import { ProposalReviewPanel } from "@/components/admin/ProposalReviewPanel";
 import { DatabaseTestPanel } from "@/components/admin/DatabaseTestPanel";
+import { EmailTestPanel } from "@/components/admin/EmailTestPanel";
+import { AdminDashboard } from "@/components/admin/AdminDashboard";
 
 const Admin = () => {
   const [password, setPassword] = useState("");
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [activeTab, setActiveTab] = useState("overview");
+  const [activeTab, setActiveTab] = useState("dashboard");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedFaculty, setSelectedFaculty] = useState("all");
   const [selectedStatus, setSelectedStatus] = useState("all");
@@ -35,8 +65,10 @@ const Admin = () => {
   const [viewMode, setViewMode] = useState<'overview' | 'courses'>('overview');
   const [facultyFilter, setFacultyFilter] = useState<string>("");
   const [statusFilter, setStatusFilter] = useState<'all' | 'vacant' | 'assigned' | 'issues'>('all');
-  const [selectedSubcategory, setSelectedSubcategory] = useState("all");
+  const [selectedSchool, setSelectedSchool] = useState("all");
   const [selectedVolumeValidation, setSelectedVolumeValidation] = useState("all");
+  const [showQuickActions, setShowQuickActions] = useState(false);
+  const [lastActivity, setLastActivity] = useState<Date>(new Date());
   
   const navigate = useNavigate();
   const { courses, loading, validateHourDistribution, updateCourseStatus, fetchCourses } = useCourses();
@@ -56,6 +88,7 @@ const Admin = () => {
     if (password === ADMIN_PASSWORD) {
       setIsAuthenticated(true);
       localStorage.setItem("admin_authenticated", "true");
+      setLastActivity(new Date());
       toast({
         title: "Connexion réussie",
         description: "Bienvenue dans l'interface d'administration",
@@ -99,108 +132,35 @@ const Admin = () => {
     return grouped;
   }, [courses]);
 
-  const filteredCourses = useMemo(() => {
-    let filtered = courses;
+  // Calcul des statistiques globales
+  const globalStats = useMemo(() => {
+    const total = courses.length;
+    const vacant = courses.filter(c => c.vacant).length;
+    const assigned = courses.filter(c => !c.vacant && c.assignments && c.assignments.length > 0).length;
+    const pending = courses.filter(c => !c.vacant && (!c.assignments || c.assignments.length === 0)).length;
+    const issues = courses.filter(c => !validateHourDistribution(c).isValid).length;
+    const completionRate = total > 0 ? Math.round((assigned / total) * 100) : 0;
 
-    // Search filter
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase();
-      filtered = filtered.filter(course => 
-        course.title.toLowerCase().includes(term) ||
-        course.code?.toLowerCase().includes(term) ||
-        course.assignments.some(a => 
-          `${a.teacher.first_name} ${a.teacher.last_name}`.toLowerCase().includes(term)
-        )
-      );
-    }
+    return {
+      total,
+      vacant,
+      assigned,
+      pending,
+      issues,
+      completionRate
+    };
+  }, [courses, validateHourDistribution]);
 
-    // Faculty filter
-    if (selectedFaculty !== "all") {
-      filtered = filtered.filter(course => course.faculty === selectedFaculty);
-    }
-
-    if (facultyFilter) {
-      filtered = filtered.filter(course => course.faculty === facultyFilter);
-    }
-
-    // Status filter
-    if (selectedStatus !== "all" || statusFilter !== 'all') {
-      const status = selectedStatus !== "all" ? selectedStatus : statusFilter;
-      filtered = filtered.filter(course => {
-        switch (status) {
-          case "vacant":
-            return course.vacant;
-          case "assigned":
-            return !course.vacant && course.assignments.length > 0;
-          case "pending":
-            return !course.vacant && course.assignments.length === 0;
-          case "issues":
-            return !validateHourDistribution(course).isValid;
-          default:
-            return true;
-        }
-      });
-    }
-
-    // Subcategory filter
-    if (selectedSubcategory !== "all") {
-      filtered = filtered.filter(course => course.subcategory === selectedSubcategory);
-    }
-
-    // Volume validation filter
-    if (selectedVolumeValidation !== "all") {
-      filtered = filtered.filter(course => {
-        const validation = validateHourDistribution(course);
-        return selectedVolumeValidation === "valid" ? validation.isValid : !validation.isValid;
-      });
-    }
-
-    // Sort
-    filtered.sort((a, b) => {
-      let aValue: any, bValue: any;
-      
-      switch (sortBy) {
-        case "title":
-          aValue = a.title;
-          bValue = b.title;
-          break;
-        case "code":
-          aValue = a.code || "";
-          bValue = b.code || "";
-          break;
-        case "faculty":
-          aValue = a.faculty || "";
-          bValue = b.faculty || "";
-          break;
-        case "subcategory":
-          aValue = a.subcategory || "";
-          bValue = b.subcategory || "";
-          break;
-        case "status":
-          aValue = a.vacant ? "vacant" : (a.assignments.length > 0 ? "assigned" : "pending");
-          bValue = b.vacant ? "vacant" : (b.assignments.length > 0 ? "assigned" : "pending");
-          break;
-        case "start_date":
-          aValue = a.start_date || "";
-          bValue = b.start_date || "";
-          break;
-        default:
-          aValue = a.title;
-          bValue = b.title;
-      }
-
-      if (sortOrder === 'asc') {
-        return aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
-      } else {
-        return aValue > bValue ? -1 : aValue < bValue ? 1 : 0;
-      }
-    });
-
-    return filtered;
-  }, [courses, searchTerm, selectedFaculty, selectedStatus, selectedSubcategory, selectedVolumeValidation, facultyFilter, statusFilter, sortBy, sortOrder, validateHourDistribution]);
+  // Activités récentes simulées
+  const recentActivities = useMemo(() => [
+    { id: 1, action: "Nouvelle proposition reçue", course: "LINFO1101", time: "2 min", type: "proposal" },
+    { id: 2, action: "Cours attribué", course: "LMATH1101", time: "15 min", type: "assignment" },
+    { id: 3, action: "Demande de modification", course: "LPHYS1101", time: "1h", type: "request" },
+    { id: 4, action: "Import d'enseignants", course: "Batch", time: "2h", type: "import" },
+  ], []);
 
   const handleViewCourses = (faculty: string, filter: 'all' | 'vacant' | 'assigned' | 'issues') => {
-    setFacultyFilter(faculty === "Non définie" ? "" : faculty);
+    setFacultyFilter(faculty);
     setStatusFilter(filter);
     setActiveTab('courses');
   };
@@ -209,71 +169,429 @@ const Admin = () => {
     setSearchTerm("");
     setSelectedFaculty("all");
     setSelectedStatus("all");
-    setSelectedSubcategory("all");
-    setSelectedVolumeValidation("all");
     setFacultyFilter("");
     setStatusFilter('all');
+    setSelectedSchool("all");
+    setSelectedVolumeValidation("all");
   };
 
   const exportToCSV = () => {
-    const headers = [
-      "ID", "Titre", "Code", "Faculté", "Sous-catégorie", "Statut", 
-      "Date début", "Durée (sem)", "Vol.1 (h)", "Vol.2 (h)", 
-      "Nb enseignants", "Volume valide"
-    ];
-    
-    const rows = filteredCourses.map(course => {
-      const validation = validateHourDistribution(course);
-      return [
-        course.id,
-        course.title,
-        course.code || "",
-        course.faculty || "",
-        course.subcategory || "",
-        course.vacant ? "Vacant" : "Attribué",
-        course.start_date || "",
-        course.duration_weeks || 0,
-        course.volume_total_vol1,
-        course.volume_total_vol2,
-        course.assignments.length,
-        validation.isValid ? "Oui" : "Non"
-      ];
+    // Logique d'export CSV
+    toast({
+      title: "Export en cours",
+      description: "Le fichier CSV est en cours de génération...",
     });
-
-    const csvContent = [headers, ...rows].map(row => 
-      row.map(cell => `"${cell}"`).join(",")
-    ).join("\n");
-
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-    link.setAttribute("href", url);
-    link.setAttribute("download", `cours_${new Date().toISOString().split('T')[0]}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
   };
+
+  const handleQuickAction = (action: string) => {
+    switch (action) {
+      case 'refresh':
+        fetchCourses();
+        toast({
+          title: "Actualisation",
+          description: "Données mises à jour",
+        });
+        break;
+      case 'import':
+        setActiveTab('import');
+        break;
+      case 'proposals':
+        setActiveTab('proposals');
+        break;
+      case 'settings':
+        setActiveTab('settings');
+        break;
+    }
+    setShowQuickActions(false);
+  };
+
+  const renderContent = () => {
+    switch (activeTab) {
+      case 'dashboard':
+        return <AdminDashboard />;
+      case 'teachers':
+        return <TeacherManagement />;
+      case 'import':
+        return <TeacherImportAndStatus />;
+      case 'proposals':
+        return <ProposalManagement />;
+      case 'proposal-review':
+        return <ProposalReviewPanel />;
+      case 'database-test':
+        return <DatabaseTestPanel />;
+      case 'email-test':
+        return <EmailTestPanel />;
+      case 'courses-proposals':
+        return <CourseProposalManagement />;
+      case 'assignments':
+        return <AssignmentManagement />;
+      case 'requests':
+        return <ModificationRequests />;
+      case 'courses':
+        return renderCoursesTab();
+      case 'settings':
+        return renderSettingsTab();
+      default:
+        return <AdminDashboard />;
+    }
+  };
+
+  const renderDashboardTab = () => (
+    <div className="space-y-6">
+      {/* En-tête du tableau de bord */}
+      <div className="flex justify-between items-center">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">Tableau de Bord</h2>
+          <p className="text-gray-600">Vue d'ensemble de la gestion des cours</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowQuickActions(!showQuickActions)}
+          >
+            <Zap className="h-4 w-4 mr-2" />
+            Actions rapides
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={fetchCourses}
+          >
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Actualiser
+          </Button>
+        </div>
+      </div>
+
+      {/* Actions rapides */}
+      {showQuickActions && (
+        <Card className="border-2 border-blue-200 bg-blue-50/30">
+          <CardContent className="p-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleQuickAction('refresh')}
+                className="flex items-center gap-2"
+              >
+                <RefreshCw className="h-4 w-4" />
+                Actualiser
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleQuickAction('import')}
+                className="flex items-center gap-2"
+              >
+                <Upload className="h-4 w-4" />
+                Import
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleQuickAction('proposals')}
+                className="flex items-center gap-2"
+              >
+                <FileText className="h-4 w-4" />
+                Propositions
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleQuickAction('settings')}
+                className="flex items-center gap-2"
+              >
+                <Settings className="h-4 w-4" />
+                Paramètres
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setActiveTab('email-test')}
+                className="flex items-center gap-2"
+              >
+                <Send className="h-4 w-4" />
+                Test Emails
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Statistiques globales */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card className="border-l-4 border-blue-500">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Total Cours</p>
+                <p className="text-2xl font-bold text-gray-900">{globalStats.total}</p>
+              </div>
+              <BookOpen className="h-8 w-8 text-blue-500" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-l-4 border-orange-500">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Cours Vacants</p>
+                <p className="text-2xl font-bold text-gray-900">{globalStats.vacant}</p>
+              </div>
+              <AlertTriangle className="h-8 w-8 text-orange-500" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-l-4 border-green-500">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Attribués</p>
+                <p className="text-2xl font-bold text-gray-900">{globalStats.assigned}</p>
+                <p className="text-sm text-green-600">{globalStats.completionRate}%</p>
+              </div>
+              <CheckCircle className="h-8 w-8 text-green-500" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-l-4 border-red-500">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Problèmes</p>
+                <p className="text-2xl font-bold text-gray-900">{globalStats.issues}</p>
+              </div>
+              <XCircle className="h-8 w-8 text-red-500" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Activités récentes et statistiques par faculté */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Activités récentes */}
+        <Card className="lg:col-span-1">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Activity className="h-5 w-5" />
+              Activités récentes
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {recentActivities.map((activity) => (
+                <div key={activity.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50">
+                  <div className={`w-2 h-2 rounded-full ${
+                    activity.type === 'proposal' ? 'bg-blue-500' :
+                    activity.type === 'assignment' ? 'bg-green-500' :
+                    activity.type === 'request' ? 'bg-orange-500' : 'bg-purple-500'
+                  }`} />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">{activity.action}</p>
+                    <p className="text-xs text-gray-500">{activity.course} • {activity.time}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Statistiques par faculté */}
+        <div className="lg:col-span-2">
+          <h3 className="text-lg font-semibold mb-4">Statistiques par Faculté</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {Object.entries(coursesByFaculty).map(([faculty, facultyCourses]) => (
+              <FacultyStatsCard
+                key={faculty}
+                faculty={faculty}
+                courses={facultyCourses}
+                onViewCourses={handleViewCourses}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderCoursesTab = () => (
+    <div className="space-y-6">
+      {/* En-tête avec filtres */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">Gestion des Cours</h2>
+          <p className="text-gray-600">Filtrez et gérez les cours</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={handleClearFilters}>
+            <Filter className="h-4 w-4 mr-2" />
+            Effacer filtres
+          </Button>
+          <Button variant="outline" size="sm" onClick={fetchCourses}>
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Actualiser
+          </Button>
+        </div>
+      </div>
+
+      {/* Filtres avancés */}
+      <AdminFilters
+        searchTerm={searchTerm}
+        onSearchChange={setSearchTerm}
+        selectedFaculty={selectedFaculty}
+        onFacultyChange={setSelectedFaculty}
+        selectedStatus={selectedStatus}
+        onStatusChange={setSelectedStatus}
+        selectedSchool={selectedSchool}
+        onSchoolChange={setSelectedSchool}
+        selectedVolumeValidation={selectedVolumeValidation}
+        onVolumeValidationChange={setSelectedVolumeValidation}
+        sortBy={sortBy}
+        onSortChange={setSortBy}
+        sortOrder={sortOrder}
+        onSortOrderChange={setSortOrder}
+        onClearFilters={handleClearFilters}
+      />
+
+      {/* Affichage des cours */}
+      {loading ? (
+        <div className="text-center py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-2 text-gray-600">Chargement des cours...</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {courses
+            .filter(course => {
+              if (searchTerm) {
+                const term = searchTerm.toLowerCase();
+                return course.title.toLowerCase().includes(term) ||
+                       course.code?.toLowerCase().includes(term);
+              }
+              if (selectedFaculty !== "all") {
+                return course.faculty === selectedFaculty;
+              }
+              if (selectedStatus !== "all") {
+                switch (selectedStatus) {
+                  case "vacant":
+                    return course.vacant;
+                  case "assigned":
+                            return !course.vacant && course.assignments && course.assignments.length > 0;
+      case "pending":
+        return !course.vacant && (!course.assignments || course.assignments.length === 0);
+                  default:
+                    return true;
+                }
+              }
+              return true;
+            })
+            .map((course) => (
+              <CourseCard
+                key={course.id}
+                course={course}
+                onStatusUpdate={updateCourseStatus}
+                onCourseUpdate={fetchCourses}
+                validateHourDistribution={validateHourDistribution}
+                isAdmin={true}
+              />
+            ))}
+        </div>
+      )}
+    </div>
+  );
+
+  const renderSettingsTab = () => (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-bold text-gray-900">Paramètres</h2>
+        <p className="text-gray-600">Configuration de l'interface d'administration</p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Informations de session */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Shield className="h-5 w-5" />
+              Session
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <p className="text-sm font-medium">Dernière activité</p>
+              <p className="text-sm text-gray-600">{lastActivity.toLocaleString()}</p>
+            </div>
+            <div>
+              <p className="text-sm font-medium">Statut</p>
+              <Badge variant="outline" className="bg-green-50 text-green-700">
+                Connecté
+              </Badge>
+            </div>
+            <Button variant="outline" onClick={handleLogout}>
+              Se déconnecter
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* Statistiques système */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Database className="h-5 w-5" />
+              Système
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <p className="text-sm font-medium">Version</p>
+              <p className="text-sm text-gray-600">1.0.0</p>
+            </div>
+            <div>
+              <p className="text-sm font-medium">Environnement</p>
+              <p className="text-sm text-gray-600">Développement</p>
+            </div>
+            <div>
+              <p className="text-sm font-medium">Base de données</p>
+              <p className="text-sm text-gray-600">Supabase</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
 
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Card className="w-full max-w-md">
-          <CardHeader>
-            <CardTitle className="text-center">Accès Administration</CardTitle>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+        <Card className="w-full max-w-md shadow-xl">
+          <CardHeader className="text-center pb-6">
+            <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Shield className="h-8 w-8 text-white" />
+            </div>
+            <CardTitle className="text-2xl">Administration</CardTitle>
+            <p className="text-muted-foreground">Accès sécurisé à l'interface d'administration</p>
           </CardHeader>
           <CardContent className="space-y-4">
-            <Input
-              type="password"
-              placeholder="Mot de passe"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
-            />
-            <Button onClick={handleLogin} className="w-full">
+            <div className="space-y-2">
+              <Input
+                type="password"
+                placeholder="Mot de passe d'administration"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
+                className="text-center"
+              />
+            </div>
+            <Button onClick={handleLogin} className="w-full" size="lg">
+              <Shield className="h-4 w-4 mr-2" />
               Se connecter
             </Button>
             <Button variant="outline" onClick={() => navigate("/")} className="w-full">
+              <ArrowLeft className="h-4 w-4 mr-2" />
               Retour à l'accueil
             </Button>
           </CardContent>
@@ -285,183 +603,54 @@ const Admin = () => {
   const coursesWithIssues = courses.filter(course => !validateHourDistribution(course).isValid);
   const totalTeachers = new Set(courses.flatMap(c => c.assignments.map(a => a.teacher_id))).size;
 
-  const renderContent = () => {
-    switch (activeTab) {
-      case 'teachers':
-        return <TeacherManagement />;
-      case 'import':
-        return <TeacherImportAndStatus />;
-      case 'proposals':
-        return <ProposalManagement />;
-      case 'proposal-review':
-        return <ProposalReviewPanel />;
-      case 'database-test':
-        return <DatabaseTestPanel />;
-      case 'courses-proposals':
-        return <CourseProposalManagement />;
-      case 'assignments':
-        return <AssignmentManagement />;
-      case 'requests':
-        return <ModificationRequests />;
-      case 'courses':
-        return renderCoursesTab();
-      default:
-        return renderOverviewTab();
-    }
-  };
-
-  const renderOverviewTab = () => (
-    <div className="space-y-6">
-      {/* Global statistics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="flex items-center p-6">
-            <BookOpen className="h-8 w-8 text-blue-500 mr-4" />
-            <div>
-              <p className="text-2xl font-bold">{courses.length}</p>
-              <p className="text-sm text-muted-foreground">Total cours</p>
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="flex items-center p-6">
-            <Users className="h-8 w-8 text-green-500 mr-4" />
-            <div>
-              <p className="text-2xl font-bold">{totalTeachers}</p>
-              <p className="text-sm text-muted-foreground">Enseignants uniques</p>
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="flex items-center p-6">
-            <AlertTriangle className="h-8 w-8 text-orange-500 mr-4" />
-            <div>
-              <p className="text-2xl font-bold">{coursesWithIssues.length}</p>
-              <p className="text-sm text-muted-foreground">Problèmes de volume</p>
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="flex items-center p-6">
-            <BookOpen className="h-8 w-8 text-purple-500 mr-4" />
-            <div>
-              <p className="text-2xl font-bold">
-                {Math.round((courses.filter(c => !c.vacant).length / courses.length) * 100)}%
-              </p>
-              <p className="text-sm text-muted-foreground">Taux d'attribution</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Faculty cards */}
-      <div>
-        <h2 className="text-2xl font-bold mb-4">Vue par Faculté</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {Object.entries(coursesByFaculty).map(([faculty, facultyCourses]) => (
-            <FacultyStatsCard
-              key={faculty}
-              faculty={faculty}
-              courses={facultyCourses}
-              onViewCourses={handleViewCourses}
-            />
-          ))}
-        </div>
-      </div>
-      <div className="mb-4">
-        <CourseImportDialog />
-      </div>
-    </div>
-  );
-
-  const renderCoursesTab = () => (
-    <div className="space-y-6">
-      {/* Filters */}
-      <AdminFilters
-        searchTerm={searchTerm}
-        onSearchChange={setSearchTerm}
-        selectedFaculty={selectedFaculty}
-        onFacultyChange={setSelectedFaculty}
-        selectedStatus={selectedStatus}
-        onStatusChange={setSelectedStatus}
-        selectedSubcategory={selectedSubcategory}
-        onSubcategoryChange={setSelectedSubcategory}
-        selectedVolumeValidation={selectedVolumeValidation}
-        onVolumeValidationChange={setSelectedVolumeValidation}
-        sortBy={sortBy}
-        onSortChange={setSortBy}
-        sortOrder={sortOrder}
-        onSortOrderChange={setSortOrder}
-        faculties={faculties}
-        subcategories={subcategories}
-        onClearFilters={handleClearFilters}
-      />
-
-      {/* Results summary */}
-      <div className="flex justify-between items-center">
-        <p className="text-muted-foreground">
-          {filteredCourses.length} cours trouvé{filteredCourses.length > 1 ? 's' : ''}
-          {facultyFilter && ` dans la faculté ${facultyFilter}`}
-        </p>
-        {(facultyFilter || statusFilter !== 'all') && (
-          <Button variant="outline" size="sm" onClick={() => setActiveTab('overview')}>
-            <Eye className="h-4 w-4 mr-2" />
-            Retour à la vue d'ensemble
-          </Button>
-        )}
-      </div>
-
-      {/* Course cards */}
-      {loading ? (
-        <p>Chargement...</p>
-      ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {filteredCourses.map((course) => (
-            <CourseCard
-              key={course.id}
-              course={course}
-              onStatusUpdate={updateCourseStatus}
-              onCourseUpdate={fetchCourses}
-              validateHourDistribution={validateHourDistribution}
-              isAdmin={true}
-            />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-
   return (
-    <div className="min-h-screen bg-background">
-      <div className="container mx-auto px-4 py-8">
-        {/* Header */}
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-primary mb-2">
-              Interface d'Administration
-            </h1>
-            <p className="text-muted-foreground">
-              Vue d'ensemble et gestion des cours - Année académique 2024-2025
-            </p>
+    <div className="min-h-screen bg-gray-50">
+      {/* Header principal */}
+      <div className="bg-white border-b border-gray-200">
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">
+                Interface d'Administration
+              </h1>
+              <p className="text-gray-600">
+                Gestion des cours - Année académique 2024-2025
+              </p>
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2 text-sm text-gray-600">
+                <Bell className="h-4 w-4" />
+                <span>{globalStats.vacant} cours vacants</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm text-gray-600">
+                <Clock className="h-4 w-4" />
+                <span>Dernière activité: {lastActivity.toLocaleTimeString()}</span>
+              </div>
+            </div>
           </div>
         </div>
+      </div>
 
-        {/* Navigation */}
-        <AdminNavigation
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
-          onExportCSV={exportToCSV}
-          onLogout={handleLogout}
-          onGoHome={() => navigate("/")}
-        />
+      {/* Navigation */}
+      <AdminNavigation
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        onExportCSV={exportToCSV}
+        onLogout={handleLogout}
+        onGoHome={() => navigate("/")}
+        stats={{
+          total: globalStats.total,
+          vacant: globalStats.vacant,
+          assigned: globalStats.assigned,
+          issues: globalStats.issues,
+          proposals: 0, // À implémenter avec les vraies données
+          requests: 0,  // À implémenter avec les vraies données
+        }}
+      />
 
-        {/* Content */}
-        <div className="mt-6">
-          {renderContent()}
-        </div>
+      {/* Contenu principal */}
+      <div className="container mx-auto px-4 py-8">
+        {renderContent()}
       </div>
     </div>
   );

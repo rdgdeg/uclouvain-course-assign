@@ -19,6 +19,7 @@ export interface Course {
   vacant: boolean | null;
   created_at: string | null;
   updated_at: string | null;
+  assignments?: TeacherAssignment[];
 }
 
 export interface Teacher {
@@ -312,37 +313,4 @@ export interface AppConfig {
   environment: 'development' | 'production' | 'test';
 }
 
-// ============================================================================
-// EXPORTS PAR DÉFAUT
-// ============================================================================
-
-export type {
-  Course,
-  Teacher,
-  TeacherAssignment,
-  ProposalData,
-  AssignmentProposal,
-  CourseAssignment,
-  ModificationRequest,
-  CourseImportData,
-  TeacherImportData,
-  CSVParseError,
-  CourseFilters,
-  ProposalFilters,
-  ProposalFormData,
-  CourseFormData,
-  DatabaseTestResult,
-  ValidationError,
-  FacultyStats,
-  SystemStats,
-  ImportReport,
-  DraggableItem,
-  StatusOption,
-  AutoSaveData,
-  QueryParams,
-  PDFData,
-  OfflineData,
-  ApiResponse,
-  PaginatedResponse,
-  AppConfig,
-}; 
+ 

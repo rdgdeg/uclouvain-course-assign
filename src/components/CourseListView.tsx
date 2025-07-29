@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Calendar, Clock, Users, AlertTriangle, CheckCircle, GraduationCap } from "lucide-react";
-import { Course } from "@/hooks/useCourses";
+import { Course } from "@/types/index";
 import { CourseManagementDialog } from "./CourseManagementDialog";
 import { useState } from "react";
 
@@ -27,7 +27,7 @@ export const CourseListView = ({
 
   const getStatusBadge = (course: Course) => {
     if (course.vacant) return <Badge className="bg-accent text-accent-foreground">Vacant</Badge>;
-    return course.assignments.length > 0 
+    return course.assignments && course.assignments.length > 0 
       ? <Badge className="bg-green-500 text-white">Attribué</Badge>
       : <Badge className="bg-orange-500 text-white">En attente</Badge>;
   };
@@ -94,7 +94,7 @@ export const CourseListView = ({
                           </Badge>
                         </div>
                       ))}
-                      {course.assignments.length === 0 && (
+                      {(!course.assignments || course.assignments.length === 0) && (
                         <span className="text-muted-foreground text-sm">Aucun</span>
                       )}
                     </div>

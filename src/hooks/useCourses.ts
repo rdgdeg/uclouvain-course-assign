@@ -1,82 +1,68 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-
-export interface Teacher {
-  id: number;
-  first_name: string;
-  last_name: string;
-  email: string;
-  status?: string;
-}
-
-export interface CourseAssignment {
-  id: number;
-  teacher_id: number;
-  is_coordinator: boolean;
-  vol1_hours: number;
-  vol2_hours: number;
-  validated_by_coord: boolean;
-  teacher: Teacher;
-}
-
-export interface Course {
-  id: number;
-  title: string;
-  code?: string;
-  start_date?: string;
-  duration_weeks?: number;
-  volume_total_vol1: number;
-  volume_total_vol2: number;
-  vacant: boolean;
-  academic_year?: string;
-  faculty?: string;
-  subcategory?: string;
-  assignments: CourseAssignment[];
-}
+import { Course, Teacher, TeacherAssignment } from "@/types/index";
 
 export const useCourses = () => {
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
 
   const fetchCourses = async () => {
     try {
       setLoading(true);
+      setError(null);
       
+      // Requête optimisée avec jointure
       const { data: coursesData, error: coursesError } = await supabase
         .from('courses')
-        .select('*')
-        .order('title');
-
-      if (coursesError) throw coursesError;
-
-      const { data: assignmentsData, error: assignmentsError } = await supabase
-        .from('course_assignments')
         .select(`
           *,
-          teacher:teachers(*)
-        `);
+          assignments:course_assignments(
+            *,
+            teacher:teachers(*)
+          )
+        `)
+        .order('title');
 
-      if (assignmentsError) throw assignmentsError;
+      if (coursesError) {
+        console.error('Erreur lors de la récupération des cours:', coursesError);
+        throw new Error(`Erreur base de données: ${coursesError.message}`);
+      }
 
+      if (!coursesData) {
+        throw new Error('Aucune donnée reçue du serveur');
+      }
+
+      // Transformer les données pour correspondre à l'interface
       const coursesWithAssignments = coursesData.map(course => ({
         ...course,
-        assignments: assignmentsData
-          .filter(assignment => assignment.course_id === course.id)
-          .map(assignment => ({
-            ...assignment,
-            teacher: assignment.teacher as Teacher
-          }))
+        assignments: (course.assignments || []).map((assignment: any) => ({
+          ...assignment,
+          teacher: assignment.teacher as Teacher
+        }))
       }));
 
       setCourses(coursesWithAssignments);
-    } catch (error) {
-      console.error('Error fetching courses:', error);
+      
+      // Notification de succès discrète
       toast({
-        title: "Erreur",
-        description: "Impossible de charger les cours",
+        title: "Données mises à jour",
+        description: `${coursesWithAssignments.length} cours chargés`,
+        duration: 2000,
+      });
+      
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue';
+      console.error('Error fetching courses:', error);
+      setError(errorMessage);
+      
+      toast({
+        title: "Erreur de chargement",
+        description: errorMessage,
         variant: "destructive",
+        duration: 5000,
       });
     } finally {
       setLoading(false);
@@ -90,29 +76,47 @@ export const useCourses = () => {
         .update({ vacant })
         .eq('id', courseId);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Erreur lors de la mise à jour:', error);
+        throw new Error(`Erreur de mise à jour: ${error.message}`);
+      }
 
+      // Mise à jour optimiste de l'état local
       setCourses(prev => prev.map(course => 
         course.id === courseId ? { ...course, vacant } : course
       ));
 
       toast({
-        title: "Succès",
+        title: "Statut mis à jour",
         description: `Cours marqué comme ${vacant ? 'vacant' : 'non vacant'}`,
+        duration: 3000,
       });
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue';
       console.error('Error updating course status:', error);
+      
       toast({
-        title: "Erreur",
-        description: "Impossible de mettre à jour le statut du cours",
+        title: "Erreur de mise à jour",
+        description: errorMessage,
         variant: "destructive",
+        duration: 5000,
       });
+      
+      // Recharger les données en cas d'erreur
+      await fetchCourses();
     }
   };
 
   const validateHourDistribution = (course: Course): { isValid: boolean; message?: string } => {
-    const totalVol1 = course.assignments.reduce((sum, assignment) => sum + assignment.vol1_hours, 0);
-    const totalVol2 = course.assignments.reduce((sum, assignment) => sum + assignment.vol2_hours, 0);
+    if (!course.assignments || course.assignments.length === 0) {
+      return {
+        isValid: false,
+        message: "Aucun enseignant assigné à ce cours"
+      };
+    }
+
+    const totalVol1 = course.assignments.reduce((sum, assignment) => sum + (assignment.vol1_hours || 0), 0);
+    const totalVol2 = course.assignments.reduce((sum, assignment) => sum + (assignment.vol2_hours || 0), 0);
 
     if (totalVol1 !== course.volume_total_vol1 || totalVol2 !== course.volume_total_vol2) {
       return {
@@ -131,6 +135,7 @@ export const useCourses = () => {
   return {
     courses,
     loading,
+    error,
     fetchCourses,
     updateCourseStatus,
     validateHourDistribution

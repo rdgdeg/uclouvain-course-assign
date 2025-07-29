@@ -11,31 +11,20 @@ import { CourseListView } from "@/components/CourseListView";
 import { ViewToggle } from "@/components/ViewToggle";
 import { CourseFilter } from "@/components/CourseFilter";
 import { useCourses } from "@/hooks/useCourses";
+import { FacultySchoolFilter } from "@/components/ui/FacultySchoolFilter";
 
 const Index = () => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [facultyFilter, setFacultyFilter] = useState("all");
-  const [subcategoryFilter, setSubcategoryFilter] = useState("all");
+  const [schoolFilter, setSchoolFilter] = useState("all");
   const [view, setView] = useState<'cards' | 'list'>('cards');
   const [showOnlyVacant, setShowOnlyVacant] = useState(true);
   const [isAdmin] = useState(false); // TODO: Implement real admin check
   const { courses, loading, fetchCourses, updateCourseStatus, validateHourDistribution } = useCourses();
 
-  // Options de facultés et sous-catégories
-  const facultyOptions = [
-    { value: "FSM", label: "FSM", subcategories: ["EDPH", "KINE"] },
-    { value: "FSP", label: "FSP", subcategories: [] },
-    { value: "FASB", label: "FASB", subcategories: ["FARM", "SBIM"] },
-    { value: "MEDE", label: "MEDE", subcategories: ["MED", "MDEN"] }
-  ];
 
-  const getSubcategoryOptions = () => {
-    if (facultyFilter === "all") return [];
-    const faculty = facultyOptions.find(f => f.value === facultyFilter);
-    return faculty?.subcategories || [];
-  };
 
   const filteredCourses = courses.filter(course => {
     // Filtre d'affichage principal (vacant ou tous)
@@ -44,20 +33,20 @@ const Index = () => {
     const matchesSearch = 
       course.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (course.code || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-      course.assignments.some(assignment => 
-        `${assignment.teacher.first_name} ${assignment.teacher.last_name}`.toLowerCase().includes(searchTerm.toLowerCase())
+      course.assignments && course.assignments.some(assignment => 
+        assignment.teacher_name.toLowerCase().includes(searchTerm.toLowerCase())
       );
     
     const matchesStatus = statusFilter === "all" || 
       (statusFilter === "vacant" && course.vacant) ||
-      (statusFilter === "assigned" && !course.vacant && course.assignments.length > 0) ||
-      (statusFilter === "pending" && !course.vacant && course.assignments.length === 0);
+          (statusFilter === "assigned" && !course.vacant && course.assignments && course.assignments.length > 0) ||
+    (statusFilter === "pending" && !course.vacant && (!course.assignments || course.assignments.length === 0));
 
     const matchesFaculty = facultyFilter === "all" || course.faculty === facultyFilter;
     
-    const matchesSubcategory = subcategoryFilter === "all" || course.subcategory === subcategoryFilter;
+    const matchesSchool = schoolFilter === "all" || course.subcategory === schoolFilter;
     
-    return matchesSearch && matchesStatus && matchesFaculty && matchesSubcategory;
+    return matchesSearch && matchesStatus && matchesFaculty && matchesSchool;
   });
 
   const vacantCount = courses.filter(c => c.vacant).length;
@@ -94,7 +83,7 @@ const Index = () => {
                 <Users className="h-8 w-8 text-green-500 mr-4" />
                 <div>
                   <p className="text-2xl font-bold">
-                    {courses.filter(c => !c.vacant && c.assignments.length > 0).length}
+                    {courses.filter(c => !c.vacant && c.assignments && c.assignments.length > 0).length}
                   </p>
                   <p className="text-sm text-muted-foreground">Cours attribués</p>
                 </div>
@@ -106,7 +95,7 @@ const Index = () => {
                 <Clock className="h-8 w-8 text-orange-500 mr-4" />
                 <div>
                   <p className="text-2xl font-bold">
-                    {courses.filter(c => !c.vacant && c.assignments.length === 0).length}
+                    {courses.filter(c => !c.vacant && (!c.assignments || c.assignments.length === 0)).length}
                   </p>
                   <p className="text-sm text-muted-foreground">En attente</p>
                 </div>
@@ -153,41 +142,12 @@ const Index = () => {
                 </SelectContent>
               </Select>
 
-              <Select 
-                value={facultyFilter} 
-                onValueChange={(value) => {
-                  setFacultyFilter(value);
-                  setSubcategoryFilter("all");
-                }}
-              >
-                <SelectTrigger className="w-full md:w-48">
-                  <SelectValue placeholder="Faculté" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Toutes les facultés</SelectItem>
-                  {facultyOptions.map(faculty => (
-                    <SelectItem key={faculty.value} value={faculty.value}>
-                      {faculty.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              {getSubcategoryOptions().length > 0 && (
-                <Select value={subcategoryFilter} onValueChange={setSubcategoryFilter}>
-                  <SelectTrigger className="w-full md:w-48">
-                    <SelectValue placeholder="Sous-catégorie" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Toutes les sous-catégories</SelectItem>
-                    {getSubcategoryOptions().map(subcategory => (
-                      <SelectItem key={subcategory} value={subcategory}>
-                        {subcategory}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
+              <FacultySchoolFilter
+                facultyFilter={facultyFilter}
+                onFacultyChange={setFacultyFilter}
+                schoolFilter={schoolFilter}
+                onSchoolChange={setSchoolFilter}
+              />
             </div>
 
             {/* Sélecteur de vue */}

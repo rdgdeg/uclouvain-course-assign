@@ -168,3 +168,46 @@ export type BadgeVariantProps = VariantProps<typeof badgeVariants>;
 export type ButtonVariantProps = VariantProps<typeof buttonVariants>;
 export type ToggleVariantProps = VariantProps<typeof toggleVariants>;
 export type SonnerVariantProps = VariantProps<typeof sonnerVariants>; 
+
+// Configuration de la hiérarchie facultés/écoles
+export const FACULTY_HIERARCHY = {
+  FSM: {
+    label: "FSM",
+    schools: ["EDPH", "KINE"]
+  },
+  FSP: {
+    label: "FSP", 
+    schools: ["FSP"] // École unique pour FSP
+  },
+  MEDE: {
+    label: "MEDE",
+    schools: ["MED", "MDEN"]
+  },
+  FASB: {
+    label: "FASB",
+    schools: ["FARM", "SBIM"]
+  }
+};
+
+export const FACULTY_OPTIONS = Object.entries(FACULTY_HIERARCHY).map(([value, config]) => ({
+  value,
+  label: config.label,
+  schools: config.schools
+}));
+
+export const ALL_SCHOOLS = Object.values(FACULTY_HIERARCHY).flatMap(config => config.schools);
+
+// Fonction utilitaire pour obtenir les écoles d'une faculté
+export const getSchoolsForFaculty = (faculty: string): string[] => {
+  return FACULTY_HIERARCHY[faculty as keyof typeof FACULTY_HIERARCHY]?.schools || [];
+};
+
+// Fonction utilitaire pour obtenir la faculté d'une école
+export const getFacultyForSchool = (school: string): string | null => {
+  for (const [faculty, config] of Object.entries(FACULTY_HIERARCHY)) {
+    if (config.schools.includes(school)) {
+      return faculty;
+    }
+  }
+  return null;
+}; 

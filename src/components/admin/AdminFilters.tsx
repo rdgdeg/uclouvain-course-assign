@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Search, Filter, X, SortAsc, SortDesc } from "lucide-react";
+import { FACULTY_OPTIONS, getSchoolsForFaculty } from "@/utils/constants";
 
 interface AdminFiltersProps {
   searchTerm: string;
@@ -14,16 +15,14 @@ interface AdminFiltersProps {
   onFacultyChange: (faculty: string) => void;
   selectedStatus: string;
   onStatusChange: (status: string) => void;
-  selectedSubcategory: string;
-  onSubcategoryChange: (subcategory: string) => void;
+  selectedSchool: string;
+  onSchoolChange: (school: string) => void;
   selectedVolumeValidation: string;
   onVolumeValidationChange: (validation: string) => void;
   sortBy: string;
   onSortChange: (sort: string) => void;
   sortOrder: 'asc' | 'desc';
   onSortOrderChange: (order: 'asc' | 'desc') => void;
-  faculties: string[];
-  subcategories: string[];
   onClearFilters: () => void;
 }
 
@@ -34,21 +33,19 @@ export const AdminFilters = ({
   onFacultyChange,
   selectedStatus,
   onStatusChange,
-  selectedSubcategory,
-  onSubcategoryChange,
+  selectedSchool,
+  onSchoolChange,
   selectedVolumeValidation,
   onVolumeValidationChange,
   sortBy,
   onSortChange,
   sortOrder,
   onSortOrderChange,
-  faculties,
-  subcategories,
   onClearFilters
 }: AdminFiltersProps) => {
   const [showFilters, setShowFilters] = useState(false);
 
-  const activeFiltersCount = [selectedFaculty, selectedStatus, selectedSubcategory, selectedVolumeValidation].filter(f => f !== 'all').length;
+  const activeFiltersCount = [selectedFaculty, selectedStatus, selectedSchool, selectedVolumeValidation].filter(f => f !== 'all').length;
 
   return (
     <Card>
@@ -99,9 +96,9 @@ export const AdminFilters = ({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Toutes les facultés</SelectItem>
-                  {faculties.map(faculty => (
-                    <SelectItem key={faculty} value={faculty}>
-                      {faculty}
+                  {FACULTY_OPTIONS.map(faculty => (
+                    <SelectItem key={faculty.value} value={faculty.value}>
+                      {faculty.label}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -120,15 +117,15 @@ export const AdminFilters = ({
                 </SelectContent>
               </Select>
 
-              <Select value={selectedSubcategory} onValueChange={onSubcategoryChange}>
+              <Select value={selectedSchool} onValueChange={onSchoolChange}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Toutes sous-catégories" />
+                  <SelectValue placeholder="Toutes les écoles" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Toutes sous-catégories</SelectItem>
-                  {subcategories.map(subcategory => (
-                    <SelectItem key={subcategory} value={subcategory}>
-                      {subcategory}
+                  <SelectItem value="all">Toutes les écoles</SelectItem>
+                  {selectedFaculty !== "all" && getSchoolsForFaculty(selectedFaculty).map(school => (
+                    <SelectItem key={school} value={school}>
+                      {school}
                     </SelectItem>
                   ))}
                 </SelectContent>

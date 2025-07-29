@@ -2,9 +2,10 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Filter, BookOpen, Users, Clock } from "lucide-react";
+import { Search, Filter, BookOpen, Users, Clock, X } from "lucide-react";
 import { Header } from "@/components/Header";
 import { CourseCard } from "@/components/CourseCard";
 import { CourseListView } from "@/components/CourseListView";
@@ -33,18 +34,20 @@ const Index = () => {
     const matchesSearch = 
       course.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (course.code || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-      course.assignments && course.assignments.some(assignment => 
+      (course.assignments && course.assignments.some(assignment => 
         assignment.teacher_name.toLowerCase().includes(searchTerm.toLowerCase())
-      );
+      ));
     
     const matchesStatus = statusFilter === "all" || 
       (statusFilter === "vacant" && course.vacant) ||
-          (statusFilter === "assigned" && !course.vacant && course.assignments && course.assignments.length > 0) ||
-    (statusFilter === "pending" && !course.vacant && (!course.assignments || course.assignments.length === 0));
+      (statusFilter === "assigned" && !course.vacant && course.assignments && course.assignments.length > 0) ||
+      (statusFilter === "pending" && !course.vacant && (!course.assignments || course.assignments.length === 0));
 
     const matchesFaculty = facultyFilter === "all" || course.faculty === facultyFilter;
     
-    const matchesSchool = schoolFilter === "all" || course.subcategory === schoolFilter;
+    const matchesSchool = schoolFilter === "all" || course.school === schoolFilter;
+    
+
     
     return matchesSearch && matchesStatus && matchesFaculty && matchesSchool;
   });
@@ -125,6 +128,21 @@ const Index = () => {
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10"
             />
+            {searchTerm && (
+              <div className="absolute right-3 top-3 flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">
+                  {filteredCourses.length} résultat(s)
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSearchTerm("")}
+                  className="h-6 w-6 p-0"
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              </div>
+            )}
           </div>
           
           <div className="flex flex-col md:flex-row gap-4 items-center justify-between">

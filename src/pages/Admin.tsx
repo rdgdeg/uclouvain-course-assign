@@ -52,10 +52,9 @@ import { ProposalReviewPanel } from "@/components/admin/ProposalReviewPanel";
 import { DatabaseTestPanel } from "@/components/admin/DatabaseTestPanel";
 import { EmailTestPanel } from "@/components/admin/EmailTestPanel";
 import { AdminDashboard } from "@/components/admin/AdminDashboard";
-import { ComprehensiveCourseManagement } from "@/components/admin/ComprehensiveCourseManagement";
-import { AdminTestPanel } from "@/components/admin/AdminTestPanel";
-import { IntelligentImportPanel } from "@/components/admin/IntelligentImportPanel";
-import { CentralizedCourseManagement } from "@/components/admin/CentralizedCourseManagement";
+import { UnifiedCourseManagement } from "@/components/admin/UnifiedCourseManagement";
+import { UnifiedTeacherManagement } from "@/components/admin/UnifiedTeacherManagement";
+import { UnifiedToolsPanel } from "@/components/admin/UnifiedToolsPanel";
 
 const Admin = () => {
   const [password, setPassword] = useState("");
@@ -237,16 +236,12 @@ const Admin = () => {
         return <AssignmentManagement />;
       case 'requests':
         return <ModificationRequests />;
-      case 'courses':
-        return renderCoursesTab();
-      case 'comprehensive-courses':
-        return <ComprehensiveCourseManagement academicYear="2024-2025" />;
-      case 'centralized-courses':
-        return <CentralizedCourseManagement />;
-      case 'import-panel':
-        return <IntelligentImportPanel />;
-      case 'test-panel':
-        return <AdminTestPanel />;
+      case 'courses-management':
+        return <UnifiedCourseManagement />;
+      case 'teachers':
+        return <UnifiedTeacherManagement />;
+      case 'tools':
+        return <UnifiedToolsPanel />;
       case 'settings':
         return renderSettingsTab();
       default:

@@ -22,7 +22,15 @@ import {
   CheckCircle,
   AlertTriangle,
   XCircle,
-  TestTube
+  TestTube,
+  Grid3X3,
+  Search,
+  Filter,
+  Plus,
+  Eye,
+  Edit,
+  Trash2,
+  RefreshCw
 } from "lucide-react";
 
 interface AdminNavigationProps {
@@ -49,108 +57,65 @@ export const AdminNavigation = ({
   onGoHome,
   stats
 }: AdminNavigationProps) => {
+  // Navigation optimisée - 6 onglets principaux au lieu de 12
   const tabs = [
     { 
       id: 'dashboard', 
-      label: 'Tableau de bord', 
+      label: 'Vue d\'ensemble', 
       icon: BarChart3,
-      description: 'Vue centralisée',
+      description: 'Tableau de bord central',
       color: 'text-blue-600',
       bgColor: 'bg-blue-50',
-      badge: (stats?.proposals || 0) + (stats?.requests || 0)
+      badge: (stats?.proposals || 0) + (stats?.requests || 0),
+      priority: 1
     },
     { 
-      id: 'courses', 
-      label: 'Cours', 
+      id: 'courses-management', 
+      label: 'Gestion Cours', 
       icon: BookOpen,
-      description: 'Gestion des cours',
+      description: 'Cours + Attributions + Import',
       color: 'text-green-600',
       bgColor: 'bg-green-50',
-      badge: stats?.total
-    },
-    { 
-      id: 'comprehensive-courses', 
-      label: 'Gestion Complète', 
-      icon: BookOpen,
-      description: 'Analyse et commission',
-      color: 'text-emerald-600',
-      bgColor: 'bg-emerald-50',
-      badge: stats?.total
-    },
-    { 
-      id: 'centralized-courses', 
-      label: 'Cours Centralisés', 
-      icon: BarChart3,
-      description: 'Vue globale avec accordéons',
-      color: 'text-blue-600',
-      bgColor: 'bg-blue-50',
-      badge: stats?.total
-    },
-    { 
-      id: 'import-panel', 
-      label: 'Import Intelligent', 
-      icon: Upload,
-      description: 'Import CSV avec validation',
-      color: 'text-purple-600',
-      bgColor: 'bg-purple-50'
-    },
-    { 
-      id: 'teachers', 
-      label: 'Enseignants', 
-      icon: Users,
-      description: 'Gestion des enseignants',
-      color: 'text-purple-600',
-      bgColor: 'bg-purple-50'
+      badge: stats?.total,
+      priority: 1
     },
     { 
       id: 'proposals', 
       label: 'Propositions', 
       icon: FileText,
-      description: 'Validation des propositions',
+      description: 'Validation des équipes',
       color: 'text-orange-600',
       bgColor: 'bg-orange-50',
-      badge: stats?.proposals
-    },
-    { 
-      id: 'assignments', 
-      label: 'Attributions', 
-      icon: UserCheck,
-      description: 'Gestion des attributions',
-      color: 'text-indigo-600',
-      bgColor: 'bg-indigo-50'
+      badge: stats?.proposals,
+      priority: 1
     },
     { 
       id: 'requests', 
       label: 'Demandes', 
       icon: Activity,
-      description: 'Demandes de modification',
+      description: 'Modifications en attente',
       color: 'text-red-600',
       bgColor: 'bg-red-50',
-      badge: stats?.requests
+      badge: stats?.requests,
+      priority: 1
     },
     { 
-      id: 'import', 
-      label: 'Import', 
-      icon: Upload,
-      description: 'Import de données',
-      color: 'text-teal-600',
-      bgColor: 'bg-teal-50'
-    },
-    { 
-      id: 'test-panel', 
-      label: 'Tests', 
-      icon: TestTube,
-      description: 'Tests et diagnostics',
+      id: 'teachers', 
+      label: 'Enseignants', 
+      icon: Users,
+      description: 'Gestion + Import',
       color: 'text-purple-600',
-      bgColor: 'bg-purple-50'
+      bgColor: 'bg-purple-50',
+      priority: 2
     },
     { 
-      id: 'settings', 
-      label: 'Paramètres', 
+      id: 'tools', 
+      label: 'Outils', 
       icon: Settings,
-      description: 'Configuration',
+      description: 'Tests + Configuration',
       color: 'text-gray-600',
-      bgColor: 'bg-gray-50'
+      bgColor: 'bg-gray-50',
+      priority: 3
     },
   ];
 
@@ -168,12 +133,48 @@ export const AdminNavigation = ({
     };
   };
 
+  // Actions rapides contextuelles
+  const getQuickActions = () => {
+    switch (activeTab) {
+      case 'dashboard':
+        return [
+          { label: 'Actualiser', icon: RefreshCw, action: () => window.location.reload() },
+          { label: 'Exporter', icon: Download, action: onExportCSV },
+        ];
+      case 'courses-management':
+        return [
+          { label: 'Import CSV', icon: Upload, action: () => onTabChange('courses-management') },
+          { label: 'Nouveau cours', icon: Plus, action: () => onTabChange('courses-management') },
+          { label: 'Exporter', icon: Download, action: onExportCSV },
+        ];
+      case 'proposals':
+        return [
+          { label: 'Toutes', icon: Eye, action: () => onTabChange('proposals') },
+          { label: 'En attente', icon: Clock, action: () => onTabChange('proposals') },
+        ];
+      case 'requests':
+        return [
+          { label: 'Toutes', icon: Eye, action: () => onTabChange('requests') },
+          { label: 'En attente', icon: Clock, action: () => onTabChange('requests') },
+        ];
+      case 'teachers':
+        return [
+          { label: 'Import', icon: Upload, action: () => onTabChange('teachers') },
+          { label: 'Nouveau', icon: Plus, action: () => onTabChange('teachers') },
+        ];
+      default:
+        return [
+          { label: 'Actualiser', icon: RefreshCw, action: () => window.location.reload() },
+        ];
+    }
+  };
+
   return (
     <div className="bg-white border-b border-gray-200 shadow-sm">
       <div className="container mx-auto px-4">
-        {/* Navigation principale */}
+        {/* Navigation principale optimisée */}
         <div className="flex items-center justify-between py-4">
-          {/* Onglets principaux */}
+          {/* Onglets principaux - réduits à 6 */}
           <div className="flex items-center space-x-2 overflow-x-auto pb-2">
             {tabs.map((tab) => {
               const Icon = tab.icon;
@@ -209,39 +210,42 @@ export const AdminNavigation = ({
             })}
           </div>
           
-          {/* Actions rapides */}
+          {/* Actions rapides contextuelles */}
           <div className="flex items-center space-x-2">
-            {/* Indicateurs de statut */}
+            {/* Indicateurs de statut compacts */}
             {stats && (
-              <div className="hidden lg:flex items-center space-x-4 mr-4">
-                <div className="flex items-center gap-2 text-sm">
+              <div className="hidden lg:flex items-center space-x-3 mr-4">
+                <div className="flex items-center gap-1 text-xs">
                   <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
-                  <span className="text-gray-600">{stats.vacant} vacants</span>
+                  <span className="text-gray-600">{stats.vacant}</span>
                 </div>
-                <div className="flex items-center gap-2 text-sm">
+                <div className="flex items-center gap-1 text-xs">
                   <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                  <span className="text-gray-600">{stats.assigned} attribués</span>
+                  <span className="text-gray-600">{stats.assigned}</span>
                 </div>
                 {stats.issues > 0 && (
-                  <div className="flex items-center gap-2 text-sm">
+                  <div className="flex items-center gap-1 text-xs">
                     <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-                    <span className="text-gray-600">{stats.issues} problèmes</span>
+                    <span className="text-gray-600">{stats.issues}</span>
                   </div>
                 )}
               </div>
             )}
 
-            {/* Boutons d'action */}
-            <div className="flex items-center space-x-2">
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={onExportCSV}
-                className="hidden sm:flex"
-              >
-                <Download className="h-4 w-4 mr-2" />
-                Exporter
-              </Button>
+            {/* Actions rapides contextuelles */}
+            <div className="flex items-center space-x-1">
+              {getQuickActions().map((action, index) => (
+                <Button
+                  key={index}
+                  variant="outline"
+                  size="sm"
+                  onClick={action.action}
+                  className="hidden sm:flex"
+                >
+                  <action.icon className="h-4 w-4 mr-1" />
+                  {action.label}
+                </Button>
+              ))}
               
               <Button 
                 variant="outline" 
@@ -250,7 +254,7 @@ export const AdminNavigation = ({
                 className="hidden sm:flex"
               >
                 <ArrowLeft className="h-4 w-4 mr-2" />
-                Retour
+                Accueil
               </Button>
               
               <Button 
@@ -265,7 +269,7 @@ export const AdminNavigation = ({
           </div>
         </div>
 
-        {/* Navigation mobile (version compacte) */}
+        {/* Navigation mobile optimisée */}
         <div className="lg:hidden pb-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-1 overflow-x-auto">
@@ -293,13 +297,22 @@ export const AdminNavigation = ({
               })}
             </div>
             
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => onTabChange('settings')}
-            >
-              <Settings className="h-4 w-4" />
-            </Button>
+            <div className="flex items-center space-x-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onTabChange('tools')}
+              >
+                <Settings className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onLogout}
+              >
+                <Shield className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </div>
       </div>

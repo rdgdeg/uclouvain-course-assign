@@ -85,14 +85,7 @@ export const AdminNotifications = ({
         onClick: onViewCourses
       }
     }] : []),
-    {
-      id: 'system-maintenance',
-      type: 'system' as const,
-      title: 'Maintenance système',
-      message: 'Une maintenance est prévue ce soir à 22h00. Le système sera temporairement indisponible.',
-      priority: 'low' as const,
-      timestamp: new Date()
-    }
+
   ].filter(notification => !dismissedNotifications.includes(notification.id));
 
   const getNotificationIcon = (type: string) => {

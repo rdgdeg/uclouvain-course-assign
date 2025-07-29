@@ -53,6 +53,7 @@ import { DatabaseTestPanel } from "@/components/admin/DatabaseTestPanel";
 import { EmailTestPanel } from "@/components/admin/EmailTestPanel";
 import { AdminDashboard } from "@/components/admin/AdminDashboard";
 import { ComprehensiveCourseManagement } from "@/components/admin/ComprehensiveCourseManagement";
+import { AdminTestPanel } from "@/components/admin/AdminTestPanel";
 
 const Admin = () => {
   const [password, setPassword] = useState("");
@@ -238,6 +239,8 @@ const Admin = () => {
         return renderCoursesTab();
       case 'comprehensive-courses':
         return <ComprehensiveCourseManagement academicYear="2024-2025" />;
+      case 'test-panel':
+        return <AdminTestPanel />;
       case 'settings':
         return renderSettingsTab();
       default:

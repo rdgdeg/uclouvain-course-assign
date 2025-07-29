@@ -21,7 +21,8 @@ import {
   Clock,
   CheckCircle,
   AlertTriangle,
-  XCircle
+  XCircle,
+  TestTube
 } from "lucide-react";
 
 interface AdminNavigationProps {
@@ -117,6 +118,14 @@ export const AdminNavigation = ({
       description: 'Import de données',
       color: 'text-teal-600',
       bgColor: 'bg-teal-50'
+    },
+    { 
+      id: 'test-panel', 
+      label: 'Tests', 
+      icon: TestTube,
+      description: 'Tests et diagnostics',
+      color: 'text-purple-600',
+      bgColor: 'bg-purple-50'
     },
     { 
       id: 'settings', 

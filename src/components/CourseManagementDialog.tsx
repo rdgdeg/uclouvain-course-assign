@@ -7,7 +7,12 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Trash2, Plus, Search } from "lucide-react";
-import { Course, Teacher, CourseAssignment } from "@/hooks/useCourses";
+import { Course, Teacher, CourseAssignment } from "@/types/index";
+
+// Type étendu pour les attributions avec les données de l'enseignant
+interface AssignmentWithTeacher extends CourseAssignment {
+  teacher?: Teacher;
+}
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -24,7 +29,7 @@ export const CourseManagementDialog = ({
   onOpenChange, 
   onUpdate 
 }: CourseManagementDialogProps) => {
-  const [assignments, setAssignments] = useState<CourseAssignment[]>([]);
+  const [assignments, setAssignments] = useState<AssignmentWithTeacher[]>([]);
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [newTeacher, setNewTeacher] = useState({

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -97,6 +97,149 @@ export const AdminDashboard = () => {
   const [statusFilter, setStatusFilter] = useState("all");
   const [activeTab, setActiveTab] = useState("overview");
   const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  // Mutation pour valider une proposition
+  const validateProposalMutation = useMutation({
+    mutationFn: async ({ 
+      proposalId, 
+      status, 
+      adminNotes 
+    }: { 
+      proposalId: string; 
+      status: 'approved' | 'rejected'; 
+      adminNotes: string; 
+    }) => {
+      const { data, error } = await supabase
+        .from('assignment_proposals')
+        .update({
+          status,
+          admin_notes: adminNotes,
+          validated_at: new Date().toISOString(),
+          validated_by: 'Admin'
+        })
+        .eq('id', proposalId)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Si approuvé, créer les attributions et marquer le cours comme non vacant
+      if (status === 'approved' && data) {
+        const proposal = proposals.find(p => p.id === proposalId);
+        if (proposal && proposal.proposal_data.assignments) {
+          // Supprimer les attributions existantes pour ce cours
+          await supabase
+            .from('course_assignments')
+            .delete()
+            .eq('course_id', proposal.course_id);
+
+          // Créer les nouvelles attributions
+          const assignmentsToInsert = proposal.proposal_data.assignments.map((assignment: any) => ({
+            course_id: proposal.course_id,
+            teacher_id: assignment.teacher_id,
+            is_coordinator: assignment.is_coordinator,
+            vol1_hours: assignment.vol1_hours,
+            vol2_hours: assignment.vol2_hours,
+            validated_by_coord: false
+          }));
+
+          if (assignmentsToInsert.length > 0) {
+            const { error: assignmentError } = await supabase
+              .from('course_assignments')
+              .insert(assignmentsToInsert);
+            
+            if (assignmentError) throw assignmentError;
+          }
+
+          // Marquer le cours comme non vacant
+          const { error: courseError } = await supabase
+            .from('courses')
+            .update({ vacant: false })
+            .eq('id', proposal.course_id);
+          
+          if (courseError) throw courseError;
+        }
+      }
+
+      return data;
+    },
+    onSuccess: (_, { status }) => {
+      queryClient.invalidateQueries({ queryKey: ['assignment-proposals'] });
+      queryClient.invalidateQueries({ queryKey: ['courses'] });
+      setShowProposalDetails(false);
+      setSelectedProposal(null);
+      setAdminNotes("");
+      
+      toast({
+        title: "Proposition traitée",
+        description: `Proposition ${status === 'approved' ? 'approuvée' : 'rejetée'} avec succès.`,
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Erreur",
+        description: "Impossible de traiter la proposition.",
+        variant: "destructive",
+      });
+    }
+  });
+
+  // Mutation pour traiter une demande de modification
+  const updateRequestMutation = useMutation({
+    mutationFn: async ({ 
+      requestId, 
+      status, 
+      adminNotes 
+    }: { 
+      requestId: string; 
+      status: 'approved' | 'rejected'; 
+      adminNotes: string; 
+    }) => {
+      const { data, error } = await supabase
+        .from('modification_requests')
+        .update({
+          status,
+          admin_notes: adminNotes,
+          validated_at: new Date().toISOString(),
+          validated_by: 'Admin'
+        })
+        .eq('id', requestId)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Si approuvé, marquer le cours comme non vacant
+      if (status === 'approved' && selectedRequest?.course_id) {
+        await supabase
+          .from('courses')
+          .update({ vacant: false })
+          .eq('id', selectedRequest.course_id);
+      }
+
+      return data;
+    },
+    onSuccess: (_, { status }) => {
+      queryClient.invalidateQueries({ queryKey: ['modification-requests'] });
+      queryClient.invalidateQueries({ queryKey: ['courses'] });
+      setShowRequestDetails(false);
+      setSelectedRequest(null);
+      setAdminNotes("");
+      
+      toast({
+        title: "Demande traitée",
+        description: `Demande ${status === 'approved' ? 'approuvée' : 'rejetée'} avec succès.`,
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Erreur",
+        description: "Impossible de traiter la demande.",
+        variant: "destructive",
+      });
+    }
+  });
 
   // Récupération des propositions
   const { data: proposals = [], isLoading: proposalsLoading } = useQuery({
@@ -228,6 +371,46 @@ export const AdminDashboard = () => {
       default:
         return type;
     }
+  };
+
+  const handleApproveProposal = () => {
+    if (!selectedProposal) return;
+    
+    validateProposalMutation.mutate({
+      proposalId: selectedProposal.id,
+      status: 'approved',
+      adminNotes: adminNotes
+    });
+  };
+
+  const handleRejectProposal = () => {
+    if (!selectedProposal) return;
+    
+    validateProposalMutation.mutate({
+      proposalId: selectedProposal.id,
+      status: 'rejected',
+      adminNotes: adminNotes
+    });
+  };
+
+  const handleApproveRequest = () => {
+    if (!selectedRequest) return;
+    
+    updateRequestMutation.mutate({
+      requestId: selectedRequest.id,
+      status: 'approved',
+      adminNotes: adminNotes
+    });
+  };
+
+  const handleRejectRequest = () => {
+    if (!selectedRequest) return;
+    
+    updateRequestMutation.mutate({
+      requestId: selectedRequest.id,
+      status: 'rejected',
+      adminNotes: adminNotes
+    });
   };
 
   return (
@@ -785,23 +968,15 @@ export const AdminDashboard = () => {
                   </Button>
                   <Button
                     variant="destructive"
-                    onClick={() => {
-                      toast({
-                        title: "Fonctionnalité à implémenter",
-                        description: "La gestion des propositions sera bientôt disponible",
-                      });
-                    }}
+                    onClick={handleRejectProposal}
+                    disabled={validateProposalMutation.isPending}
                   >
                     <XCircle className="h-4 w-4 mr-2" />
                     Rejeter
                   </Button>
                   <Button
-                    onClick={() => {
-                      toast({
-                        title: "Fonctionnalité à implémenter",
-                        description: "La gestion des propositions sera bientôt disponible",
-                      });
-                    }}
+                    onClick={handleApproveProposal}
+                    disabled={validateProposalMutation.isPending}
                     className="bg-green-600 hover:bg-green-700"
                   >
                     <CheckCircle className="h-4 w-4 mr-2" />
@@ -901,23 +1076,15 @@ export const AdminDashboard = () => {
                   <div className="flex justify-end space-x-2">
                     <Button 
                       variant="destructive" 
-                      onClick={() => {
-                        toast({
-                          title: "Fonctionnalité à implémenter",
-                          description: "La gestion des demandes sera bientôt disponible",
-                        });
-                      }}
+                      onClick={handleRejectRequest}
+                      disabled={updateRequestMutation.isPending}
                     >
                       <XCircle className="h-4 w-4 mr-2" />
                       Rejeter
                     </Button>
                     <Button 
-                      onClick={() => {
-                        toast({
-                          title: "Fonctionnalité à implémenter",
-                          description: "La gestion des demandes sera bientôt disponible",
-                        });
-                      }}
+                      onClick={handleApproveRequest}
+                      disabled={updateRequestMutation.isPending}
                     >
                       <CheckCircle className="h-4 w-4 mr-2" />
                       Approuver

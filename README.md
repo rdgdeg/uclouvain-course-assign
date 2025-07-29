@@ -4,6 +4,8 @@
 
 Application de gestion des cours vacants pour l'UCLouvain, permettant aux enseignants de soumettre des candidatures et aux administrateurs de gérer les attributions de cours.
 
+**🔄 Dernière mise à jour :** Version corrigée avec toutes les optimisations Vercel
+
 ## 🚀 Déploiement
 
 ### Déploiement sur Vercel (Recommandé)

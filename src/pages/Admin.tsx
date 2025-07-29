@@ -75,7 +75,7 @@ const Admin = () => {
   const { toast } = useToast();
 
   // Mot de passe simple pour l'accès admin
-  const ADMIN_PASSWORD = "admin2025";
+  const ADMIN_PASSWORD = "woluwe1200";
 
   useEffect(() => {
     const authStatus = localStorage.getItem("admin_authenticated");

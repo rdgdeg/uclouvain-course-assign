@@ -108,6 +108,12 @@ const Admin = () => {
     navigate("/");
   };
 
+  const resetAuth = () => {
+    setIsAuthenticated(false);
+    localStorage.removeItem("admin_authenticated");
+    setPassword("");
+  };
+
   // Get unique faculties and subcategories
   const faculties = useMemo(() => {
     const facultySet = new Set(courses.map(c => c.faculty).filter(Boolean));
@@ -574,6 +580,9 @@ const Admin = () => {
             </div>
             <CardTitle className="text-2xl">Administration</CardTitle>
             <p className="text-muted-foreground">Accès sécurisé à l'interface d'administration</p>
+            <p className="text-xs text-blue-600 bg-blue-50 p-2 rounded">
+              💡 Mot de passe : <strong>woluwe1200</strong>
+            </p>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
@@ -593,6 +602,10 @@ const Admin = () => {
             <Button variant="outline" onClick={() => navigate("/")} className="w-full">
               <ArrowLeft className="h-4 w-4 mr-2" />
               Retour à l'accueil
+            </Button>
+            <Button variant="ghost" onClick={resetAuth} className="w-full text-sm text-gray-500">
+              <RefreshCw className="h-3 w-3 mr-1" />
+              Réinitialiser l'authentification
             </Button>
           </CardContent>
         </Card>

@@ -68,6 +68,15 @@ export const AdminNavigation = ({
       badge: stats?.total
     },
     { 
+      id: 'comprehensive-courses', 
+      label: 'Gestion Complète', 
+      icon: BookOpen,
+      description: 'Analyse et commission',
+      color: 'text-emerald-600',
+      bgColor: 'bg-emerald-50',
+      badge: stats?.total
+    },
+    { 
       id: 'teachers', 
       label: 'Enseignants', 
       icon: Users,

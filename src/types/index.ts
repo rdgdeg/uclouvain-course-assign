@@ -11,6 +11,7 @@ export interface Course {
   code: string | null;
   faculty: string | null;
   subcategory: string | null;
+  school: string | null; // Nouveau champ pour l'école
   academic_year: string | null;
   start_date: string | null;
   duration_weeks: number | null;
@@ -20,6 +21,12 @@ export interface Course {
   created_at: string | null;
   updated_at: string | null;
   assignments?: TeacherAssignment[];
+  // Nouveaux champs pour les notes et remarques
+  analysis_notes?: string | null;
+  commission_notes?: string | null;
+  analysis_date?: string | null;
+  commission_date?: string | null;
+  has_modification_request?: boolean | null;
 }
 
 export interface Teacher {
@@ -133,20 +140,62 @@ export interface CSVParseError {
 }
 
 // ============================================================================
-// TYPES POUR LES FILTRES ET RECHERCHE
+// TYPES POUR LES NOTES ET REMARQUES
+// ============================================================================
+
+export interface CourseAnalysis {
+  id: number;
+  course_id: number;
+  analysis_notes: string;
+  analysis_date: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CourseCommission {
+  id: number;
+  course_id: number;
+  commission_notes: string;
+  commission_date: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface FacultyRemarks {
+  faculty: string;
+  analysis_remarks: string[];
+  commission_remarks: string[];
+  total_courses: number;
+  vacant_courses: number;
+  assigned_courses: number;
+  courses_with_issues: number;
+}
+
+export interface SchoolRemarks {
+  school: string;
+  faculty: string;
+  analysis_remarks: string[];
+  commission_remarks: string[];
+  total_courses: number;
+  vacant_courses: number;
+  assigned_courses: number;
+}
+
+// ============================================================================
+// TYPES POUR LES FILTRES ET TRI
 // ============================================================================
 
 export interface CourseFilters {
-  faculty?: string;
-  subcategory?: string;
-  searchTerm?: string;
-  vacant?: boolean;
+  faculty: string;
+  school: string;
+  status: 'all' | 'vacant' | 'assigned' | 'pending' | 'with_issues' | 'with_modifications';
+  academic_year: string;
+  search: string;
 }
 
-export interface ProposalFilters {
-  faculty?: string;
-  status?: string;
-  searchTerm?: string;
+export interface CourseSort {
+  field: 'title' | 'code' | 'faculty' | 'school' | 'vacant' | 'analysis_date' | 'commission_date';
+  direction: 'asc' | 'desc';
 }
 
 // ============================================================================

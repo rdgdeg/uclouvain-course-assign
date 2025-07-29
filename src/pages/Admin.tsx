@@ -54,6 +54,8 @@ import { EmailTestPanel } from "@/components/admin/EmailTestPanel";
 import { AdminDashboard } from "@/components/admin/AdminDashboard";
 import { ComprehensiveCourseManagement } from "@/components/admin/ComprehensiveCourseManagement";
 import { AdminTestPanel } from "@/components/admin/AdminTestPanel";
+import { IntelligentImportPanel } from "@/components/admin/IntelligentImportPanel";
+import { CentralizedCourseManagement } from "@/components/admin/CentralizedCourseManagement";
 
 const Admin = () => {
   const [password, setPassword] = useState("");
@@ -239,6 +241,10 @@ const Admin = () => {
         return renderCoursesTab();
       case 'comprehensive-courses':
         return <ComprehensiveCourseManagement academicYear="2024-2025" />;
+      case 'centralized-courses':
+        return <CentralizedCourseManagement />;
+      case 'import-panel':
+        return <IntelligentImportPanel />;
       case 'test-panel':
         return <AdminTestPanel />;
       case 'settings':

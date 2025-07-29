@@ -78,6 +78,23 @@ export const AdminNavigation = ({
       badge: stats?.total
     },
     { 
+      id: 'centralized-courses', 
+      label: 'Cours Centralisés', 
+      icon: BarChart3,
+      description: 'Vue globale avec accordéons',
+      color: 'text-blue-600',
+      bgColor: 'bg-blue-50',
+      badge: stats?.total
+    },
+    { 
+      id: 'import-panel', 
+      label: 'Import Intelligent', 
+      icon: Upload,
+      description: 'Import CSV avec validation',
+      color: 'text-purple-600',
+      bgColor: 'bg-purple-50'
+    },
+    { 
       id: 'teachers', 
       label: 'Enseignants', 
       icon: Users,

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Course, Teacher, TeacherAssignment } from "@/types/index";
@@ -11,6 +12,7 @@ export const useCourses = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const fetchCourses = async () => {
     try {
@@ -132,12 +134,54 @@ export const useCourses = () => {
     fetchCourses();
   }, []);
 
+  // Mutation pour créer un cours
+  const createCourse = useMutation({
+    mutationFn: async (courseData: any) => {
+      const { data, error } = await supabase
+        .from('courses')
+        .insert([courseData])
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (newCourse) => {
+      setCourses(prev => [...prev, newCourse]);
+      queryClient.invalidateQueries({ queryKey: ['courses'] });
+    },
+  });
+
+  // Mutation pour mettre à jour un cours
+  const updateCourse = useMutation({
+    mutationFn: async ({ id, ...courseData }: Partial<Course> & { id: number }) => {
+      const { data, error } = await supabase
+        .from('courses')
+        .update(courseData)
+        .eq('id', id)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (updatedCourse) => {
+      setCourses(prev => prev.map(course => 
+        course.id === updatedCourse.id ? updatedCourse : course
+      ));
+      queryClient.invalidateQueries({ queryKey: ['courses'] });
+    },
+  });
+
   return {
     courses,
     loading,
+    isLoading: loading, // Alias pour compatibilité
     error,
     fetchCourses,
     updateCourseStatus,
-    validateHourDistribution
+    validateHourDistribution,
+    createCourse,
+    updateCourse
   };
 };

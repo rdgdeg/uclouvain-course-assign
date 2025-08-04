@@ -19,7 +19,7 @@ export interface Course {
   vacant: boolean | null;
   created_at: string | null;
   updated_at: string | null;
-  assignments?: any[];
+  assignments?: CourseAssignment[];
 }
 
 export interface Teacher {
@@ -40,10 +40,6 @@ export interface TeacherAssignment {
   is_coordinator: boolean;
   vol1_hours: number;
   vol2_hours: number;
-  teacher?: Teacher;
-}
-
-export interface AssignmentWithTeacher extends CourseAssignment {
   teacher?: Teacher;
 }
 
@@ -87,6 +83,7 @@ export interface CourseAssignment {
   validated_by_coord: boolean | null;
   created_at: string | null;
   updated_at: string | null;
+  teacher?: Teacher;
 }
 
 // ============================================================================

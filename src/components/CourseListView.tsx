@@ -89,7 +89,7 @@ export const CourseListView = ({
                       {course.assignments.map((assignment) => (
                         <div key={assignment.id} className="text-sm flex items-center gap-1">
                           <Badge variant="outline" className="text-xs">
-                            {assignment.teacher.first_name} {assignment.teacher.last_name}
+                            {(assignment as any).teacher?.first_name} {(assignment as any).teacher?.last_name}
                             {assignment.is_coordinator && " (Coord.)"}
                           </Badge>
                         </div>

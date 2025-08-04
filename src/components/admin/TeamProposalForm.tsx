@@ -3,13 +3,10 @@ import { useProposals } from "@/hooks/useProposals";
 import { StatusSelector } from "@/components/ui/StatusSelector";
 import { LegalMentions } from "@/components/ui/LegalMentions";
 
-interface Member {
-  nom: string;
-  prenom: string;
-  entite: string;
+import { TeamMember } from "@/types";
+
+interface Member extends TeamMember {
   statut: string;
-  vol1: number;
-  vol2: number;
 }
 
 export const TeamProposalForm: React.FC<{ 
@@ -17,7 +14,7 @@ export const TeamProposalForm: React.FC<{
   totalVol2: number;
   courseId?: number;
 }> = ({ totalVol1, totalVol2, courseId }) => {
-  const [coordo, setCoordo] = useState<Member>({ nom: "", prenom: "", entite: "", statut: "", vol1: 0, vol2: 0 });
+  const [coordo, setCoordo] = useState<Member>({ nom: "", prenom: "", entite: "", grade: "", statut: "", vol1: 0, vol2: 0 });
   const [cotitulaires, setCotitulaires] = useState<Member[]>([]);
   const [submitterName, setSubmitterName] = useState("");
   const [submitterEmail, setSubmitterEmail] = useState("");
@@ -45,7 +42,7 @@ export const TeamProposalForm: React.FC<{
   };
 
   const addCotitulaire = () => {
-    setCotitulaires([...cotitulaires, { nom: "", prenom: "", entite: "", statut: "", vol1: 0, vol2: 0 }]);
+    setCotitulaires([...cotitulaires, { nom: "", prenom: "", entite: "", grade: "", statut: "", vol1: 0, vol2: 0 }]);
   };
 
   const removeCotitulaire = (idx: number) => {
@@ -67,8 +64,8 @@ export const TeamProposalForm: React.FC<{
 
     submitTeamProposal.mutate({
       courseId,
-      coordonnateur: coordo,
-      cotitulaires,
+      coordonnateur: { ...coordo, grade: coordo.statut },
+      cotitulaires: cotitulaires.map(c => ({ ...c, grade: c.statut })),
       submitterName,
       submitterEmail
     });

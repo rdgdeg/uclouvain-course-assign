@@ -2,80 +2,177 @@ import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { testDatabaseConnection, testProposalSubmission } from "@/utils/dbTest";
-import { initializeTeacherStatuses } from "@/utils/initTeacherStatuses";
+import { supabase } from "@/integrations/supabase/client";
+
+interface DatabaseTestResult {
+  test: string;
+  success: boolean;
+  message: string;
+  details?: any;
+}
 
 export const DatabaseTestPanel: React.FC = () => {
-  const [testResults, setTestResults] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [testResults, setTestResults] = useState<DatabaseTestResult[]>([]);
+  const [isRunning, setIsRunning] = useState(false);
 
-  const runConnectionTest = async () => {
-    setIsLoading(true);
-    const results = await testDatabaseConnection();
-    setTestResults(results);
-    setIsLoading(false);
+  const runSimpleTests = async (): Promise<DatabaseTestResult[]> => {
+    const results: DatabaseTestResult[] = [];
+
+    try {
+      // Test de connexion de base
+      const { data: courses, error: coursesError } = await supabase
+        .from('courses')
+        .select('*')
+        .limit(1);
+
+      if (coursesError) {
+        results.push({
+          test: 'Connexion base de données',
+          success: false,
+          message: `Erreur de connexion: ${coursesError.message}`
+        });
+      } else {
+        results.push({
+          test: 'Connexion base de données',
+          success: true,
+          message: `Connexion réussie - ${courses?.length || 0} cours trouvés`
+        });
+      }
+
+      // Test lecture enseignants
+      const { data: teachers, error: teachersError } = await supabase
+        .from('teachers')
+        .select('*')
+        .limit(5);
+
+      if (teachersError) {
+        results.push({
+          test: 'Lecture enseignants',
+          success: false,
+          message: `Erreur: ${teachersError.message}`
+        });
+      } else {
+        results.push({
+          test: 'Lecture enseignants',
+          success: true,
+          message: `${teachers?.length || 0} enseignants trouvés`
+        });
+      }
+
+      // Test lecture assignations
+      const { data: assignments, error: assignmentsError } = await supabase
+        .from('course_assignments')
+        .select('*')
+        .limit(5);
+
+      if (assignmentsError) {
+        results.push({
+          test: 'Lecture assignations',
+          success: false,
+          message: `Erreur: ${assignmentsError.message}`
+        });
+      } else {
+        results.push({
+          test: 'Lecture assignations',
+          success: true,
+          message: `${assignments?.length || 0} assignations trouvées`
+        });
+      }
+
+    } catch (error) {
+      results.push({
+        test: 'Test général',
+        success: false,
+        message: `Erreur inattendue: ${error}`
+      });
+    }
+
+    return results;
   };
 
-  const runProposalTest = async () => {
-    setIsLoading(true);
-    const results = await testProposalSubmission();
-    setTestResults(results);
-    setIsLoading(false);
+  const handleRunTests = async () => {
+    setIsRunning(true);
+    try {
+      const results = await runSimpleTests();
+      setTestResults(results);
+    } catch (error) {
+      console.error("Erreur lors des tests:", error);
+      setTestResults([{
+        test: "Test global",
+        success: false,
+        message: "Erreur lors de l'exécution des tests"
+      }]);
+    } finally {
+      setIsRunning(false);
+    }
   };
 
-  const runStatusInit = async () => {
-    setIsLoading(true);
-    const results = await initializeTeacherStatuses();
-    setTestResults(results);
-    setIsLoading(false);
+  const handleInitStatuses = async () => {
+    try {
+      // Fonction simplifiée d'initialisation
+      const basicStatuses = [
+        { name: 'Professeur', description: 'Professeur titulaire' },
+        { name: 'Chargé de cours', description: 'Chargé de cours' },
+        { name: 'Assistant', description: 'Assistant' }
+      ];
+
+      const { error } = await supabase
+        .from('teacher_statuses')
+        .upsert(basicStatuses, { onConflict: 'name' });
+
+      if (error) {
+        console.error('Erreur lors de l\'initialisation des statuts:', error);
+      } else {
+        console.log('Statuts des enseignants initialisés avec succès');
+      }
+      
+      // Rafraîchir les tests après l'initialisation
+      handleRunTests();
+    } catch (error) {
+      console.error("Erreur lors de l'initialisation:", error);
+    }
   };
 
   return (
-    <Card>
+    <Card className="w-full">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          🧪 Test de Base de Données
-          <Badge variant="outline">Debug</Badge>
-        </CardTitle>
+        <CardTitle>Tests de Base de Données</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="flex gap-2 flex-wrap">
+        <div className="flex gap-4">
           <Button 
-            onClick={runConnectionTest} 
-            disabled={isLoading}
+            onClick={handleRunTests} 
+            disabled={isRunning}
             variant="outline"
           >
-            {isLoading ? "Test en cours..." : "Tester la connexion"}
+            {isRunning ? "Tests en cours..." : "Lancer les tests"}
           </Button>
+          
           <Button 
-            onClick={runProposalTest} 
-            disabled={isLoading}
+            onClick={handleInitStatuses} 
             variant="outline"
           >
-            {isLoading ? "Test en cours..." : "Tester les propositions"}
-          </Button>
-          <Button 
-            onClick={runStatusInit} 
-            disabled={isLoading}
-            variant="outline"
-          >
-            {isLoading ? "Initialisation..." : "Initialiser les statuts"}
+            Initialiser les statuts
           </Button>
         </div>
 
-        {testResults && (
-          <div className="mt-4 p-4 bg-muted rounded-lg">
-            <h4 className="font-semibold mb-2">Résultats du test :</h4>
-            <pre className="text-sm overflow-auto">
-              {JSON.stringify(testResults, null, 2)}
-            </pre>
+        {testResults.length > 0 && (
+          <div className="space-y-2">
+            <h4 className="font-medium">Résultats des tests :</h4>
+            {testResults.map((result, index) => (
+              <div key={index} className="flex items-center gap-2 p-2 border rounded">
+                <Badge variant={result.success ? "default" : "destructive"}>
+                  {result.success ? "✓" : "✗"}
+                </Badge>
+                <span className="font-medium">{result.test}:</span>
+                <span className={result.success ? "text-green-600" : "text-red-600"}>
+                  {result.message}
+                </span>
+              </div>
+            ))}
           </div>
         )}
-
-        <div className="text-sm text-muted-foreground">
-          <p>Ouvrez la console du navigateur (F12) pour voir les logs détaillés.</p>
-        </div>
       </CardContent>
     </Card>
   );
-}; 
+};

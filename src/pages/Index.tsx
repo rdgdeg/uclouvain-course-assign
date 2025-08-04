@@ -35,7 +35,7 @@ const Index = () => {
       course.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (course.code || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
       (course.assignments && course.assignments.some(assignment => 
-        assignment.teacher_name.toLowerCase().includes(searchTerm.toLowerCase())
+        assignment.teacher ? `${assignment.teacher.first_name} ${assignment.teacher.last_name}`.toLowerCase().includes(searchTerm.toLowerCase()) : false
       ));
     
     const matchesStatus = statusFilter === "all" || 
@@ -45,7 +45,7 @@ const Index = () => {
 
     const matchesFaculty = facultyFilter === "all" || course.faculty === facultyFilter;
     
-    const matchesSchool = schoolFilter === "all" || course.school === schoolFilter;
+    const matchesSchool = schoolFilter === "all" || course.subcategory === schoolFilter;
     
 
     

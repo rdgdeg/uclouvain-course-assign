@@ -2,14 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
-interface TeamMember {
-  nom: string;
-  prenom: string;
-  entite: string;
-  grade: string;
-  vol1: number;
-  vol2: number;
-}
+import { TeamMember } from "@/types";
 
 interface TeamProposal {
   courseId?: number;
@@ -61,14 +54,14 @@ export const useProposals = () => {
           coordonnateur: proposal.coordonnateur,
           cotitulaires: proposal.cotitulaires,
           type: 'team_proposal'
-        },
+        } as any,
         status: 'pending',
         submission_date: new Date().toISOString()
       };
 
       const { data, error } = await supabase
         .from('assignment_proposals')
-        .insert([proposalData])
+        .insert(proposalData)
         .select()
         .single();
 
@@ -107,14 +100,14 @@ export const useProposals = () => {
           coordonnateur: proposal.coordonnateur,
           cotitulaires: proposal.cotitulaires,
           type: 'free_proposal'
-        },
+        } as any,
         status: 'pending',
         submission_date: new Date().toISOString()
       };
 
       const { data, error } = await supabase
         .from('assignment_proposals')
-        .insert([proposalData])
+        .insert(proposalData)
         .select()
         .single();
 

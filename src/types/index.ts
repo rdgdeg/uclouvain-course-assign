@@ -47,6 +47,15 @@ export interface TeacherAssignment {
 // TYPES POUR LES PROPOSITIONS
 // ============================================================================
 
+export interface TeamMember {
+  nom: string;
+  prenom: string;
+  entite: string;
+  grade: string;
+  vol1: number;
+  vol2: number;
+}
+
 export interface ProposalData {
   assignments: TeacherAssignment[];
   additional_notes: string;

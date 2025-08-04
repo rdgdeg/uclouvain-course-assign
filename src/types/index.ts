@@ -11,7 +11,6 @@ export interface Course {
   code: string | null;
   faculty: string | null;
   subcategory: string | null;
-  school: string | null; // Nouveau champ pour l'école
   academic_year: string | null;
   start_date: string | null;
   duration_weeks: number | null;
@@ -20,13 +19,7 @@ export interface Course {
   vacant: boolean | null;
   created_at: string | null;
   updated_at: string | null;
-  assignments?: TeacherAssignment[];
-  // Nouveaux champs pour les notes et remarques
-  analysis_notes?: string | null;
-  commission_notes?: string | null;
-  analysis_date?: string | null;
-  commission_date?: string | null;
-  has_modification_request?: boolean | null;
+  assignments?: any[];
 }
 
 export interface Teacher {
@@ -40,12 +33,18 @@ export interface Teacher {
 }
 
 export interface TeacherAssignment {
+  id: number;
   teacher_id: number;
   teacher_name: string;
   teacher_email: string;
   is_coordinator: boolean;
   vol1_hours: number;
   vol2_hours: number;
+  teacher?: Teacher;
+}
+
+export interface AssignmentWithTeacher extends CourseAssignment {
+  teacher?: Teacher;
 }
 
 // ============================================================================

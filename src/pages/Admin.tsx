@@ -18,6 +18,7 @@ import {
   RefreshCw,
   Settings,
   Bell,
+  TestTube,
   TrendingUp,
   Calendar,
   Clock,
@@ -55,6 +56,7 @@ import { AdminDashboard } from "@/components/admin/AdminDashboard";
 import { UnifiedCourseManagement } from "@/components/admin/UnifiedCourseManagement";
 import { UnifiedTeacherManagement } from "@/components/admin/UnifiedTeacherManagement";
 import { UnifiedToolsPanel } from "@/components/admin/UnifiedToolsPanel";
+import { SystemTestPanel } from "@/components/admin/SystemTestPanel";
 
 const Admin = () => {
   const [password, setPassword] = useState("");
@@ -242,6 +244,8 @@ const Admin = () => {
         return <UnifiedTeacherManagement />;
       case 'tools':
         return <UnifiedToolsPanel />;
+      case 'system-test':
+        return <SystemTestPanel />;
       case 'settings':
         return renderSettingsTab();
       default:
@@ -326,6 +330,15 @@ const Admin = () => {
               >
                 <Send className="h-4 w-4" />
                 Test Emails
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setActiveTab('system-test')}
+                className="flex items-center gap-2"
+              >
+                <TestTube className="h-4 w-4" />
+                Test Système
               </Button>
             </div>
           </CardContent>

@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Trash2, Plus, Search, AlertTriangle, Send, Users } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useEmail } from "@/hooks/useEmail";
-import { Teacher, Course } from "@/hooks/useCourses";
+import { Teacher, Course } from "@/types/index";
 import type { TeacherAssignment, ProposalData } from "@/types";
 
 interface AssignmentProposalFormProps {
@@ -164,6 +164,7 @@ export const AssignmentProposalForm = ({
     if (!teacher) return;
 
     const newAssignment: TeacherAssignment = {
+      id: Date.now(), // ID temporaire
       teacher_id: teacherId,
       teacher_name: `${teacher.first_name} ${teacher.last_name}`,
       teacher_email: teacher.email,

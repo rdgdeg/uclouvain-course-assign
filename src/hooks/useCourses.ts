@@ -3,6 +3,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Course, Teacher, TeacherAssignment } from "@/types/index";
 
+// Export des types pour la compatibilité
+export type { Course, Teacher, TeacherAssignment };
+
 export const useCourses = () => {
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
@@ -38,10 +41,7 @@ export const useCourses = () => {
       // Transformer les données pour correspondre à l'interface
       const coursesWithAssignments = coursesData.map(course => ({
         ...course,
-        assignments: (course.assignments || []).map((assignment: any) => ({
-          ...assignment,
-          teacher: assignment.teacher as Teacher
-        }))
+        assignments: course.assignments || []
       }));
 
       setCourses(coursesWithAssignments);
@@ -115,8 +115,8 @@ export const useCourses = () => {
       };
     }
 
-    const totalVol1 = course.assignments.reduce((sum, assignment) => sum + (assignment.vol1_hours || 0), 0);
-    const totalVol2 = course.assignments.reduce((sum, assignment) => sum + (assignment.vol2_hours || 0), 0);
+    const totalVol1 = course.assignments.reduce((sum: number, assignment: any) => sum + (assignment.vol1_hours || 0), 0);
+    const totalVol2 = course.assignments.reduce((sum: number, assignment: any) => sum + (assignment.vol2_hours || 0), 0);
 
     if (totalVol1 !== course.volume_total_vol1 || totalVol2 !== course.volume_total_vol2) {
       return {

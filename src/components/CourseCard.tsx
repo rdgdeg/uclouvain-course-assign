@@ -6,6 +6,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar, Clock, Users, AlertTriangle, CheckCircle, GraduationCap, PlusCircle, ChevronDown, ChevronRight, UserCheck, UserX } from "lucide-react";
 import { Course } from "@/types/index";
 import { CourseManagementDialog } from "./CourseManagementDialog";
+import { HelpTooltip } from "@/components/ui/HelpTooltip";
+import { StatusBadge } from "@/components/ui/StatusBadge";
+import { ConfirmationDialog } from "@/components/ui/ConfirmationDialog";
+import { useToast } from "@/hooks/use-toast";
 
 interface CourseCardProps {
   course: Course;
@@ -28,7 +32,36 @@ export const CourseCard = ({
 }: CourseCardProps) => {
   const [showManagement, setShowManagement] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
+  const [showConfirmation, setShowConfirmation] = useState(false);
+  const [pendingStatusChange, setPendingStatusChange] = useState<boolean | null>(null);
+  const { toast } = useToast();
   const validation = validateHourDistribution(course);
+
+  const handleStatusChange = (newVacantStatus: boolean) => {
+    setPendingStatusChange(newVacantStatus);
+    setShowConfirmation(true);
+  };
+
+  const confirmStatusChange = async () => {
+    if (pendingStatusChange !== null) {
+      try {
+        await onStatusUpdate(course.id, pendingStatusChange);
+        toast({
+          title: "Statut mis à jour",
+          description: `Le cours a été marqué comme ${pendingStatusChange ? "vacant" : "non vacant"}.`,
+          variant: "default"
+        });
+      } catch (error) {
+        toast({
+          title: "Erreur",
+          description: "Impossible de mettre à jour le statut du cours.",
+          variant: "destructive"
+        });
+      }
+      setShowConfirmation(false);
+      setPendingStatusChange(null);
+    }
+  };
 
   const getStatusColor = () => {
     if (course.vacant) return "bg-red-500 text-white";
@@ -47,24 +80,24 @@ export const CourseCard = ({
 
   return (
     <>
-      <Card className={`hover:shadow-md transition-shadow h-full flex flex-col ${getCardStyle()}`}>
+      <Card className={`hover-lift transition-all-smooth h-full flex flex-col animate-fade-in-up ${getCardStyle()}`}>
         <CardHeader>
           <div className="flex justify-between items-start">
             <div>
-              <CardTitle className="text-xl">{course.title}</CardTitle>
+              <CardTitle className="text-xl flex items-center gap-2">
+                {course.title}
+                <HelpTooltip 
+                  content={`Code du cours: ${course.code}${course.subcategory ? ` • Sous-catégorie: ${course.subcategory}` : ""}`}
+                  icon="info"
+                />
+              </CardTitle>
               <p className="text-muted-foreground mt-1">{course.code}</p>
             </div>
             <div className="flex gap-2">
-              <Badge className={getStatusColor()}>
-                {course.vacant ? (
-                  <UserX className="h-3 w-3 mr-1" />
-                ) : course.assignments && course.assignments.length > 0 ? (
-                  <UserCheck className="h-3 w-3 mr-1" />
-                ) : (
-                  <Clock className="h-3 w-3 mr-1" />
-                )}
-                {getStatusLabel()}
-              </Badge>
+              <StatusBadge 
+                status={course.vacant ? "vacant" : course.assignments && course.assignments.length > 0 ? "assigned" : "pending"}
+                animated={course.vacant}
+              />
               {isAdmin && !validation.isValid && (
                 <Badge variant="destructive" className="flex items-center gap-1">
                   <AlertTriangle className="h-3 w-3" />
@@ -107,7 +140,13 @@ export const CourseCard = ({
               <div className="flex items-center gap-2">
                 <Calendar className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                 <div className="flex flex-col">
-                  <span className="font-medium text-xs text-muted-foreground">Début</span>
+                  <span className="font-medium text-xs text-muted-foreground flex items-center gap-1">
+                    Début
+                    <HelpTooltip 
+                      content="Date de début du cours pour l'année académique"
+                      className="h-3 w-3"
+                    />
+                  </span>
                   <span className="text-sm">
                     {course.start_date ? new Date(course.start_date).toLocaleDateString('fr-FR') : 'Non défini'}
                   </span>
@@ -116,7 +155,13 @@ export const CourseCard = ({
               <div className="flex items-center gap-2">
                 <Clock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                 <div className="flex flex-col">
-                  <span className="font-medium text-xs text-muted-foreground">Durée</span>
+                  <span className="font-medium text-xs text-muted-foreground flex items-center gap-1">
+                    Durée
+                    <HelpTooltip 
+                      content="Durée totale du cours en semaines"
+                      className="h-3 w-3"
+                    />
+                  </span>
                   <span className="text-sm">{course.duration_weeks || 0} semaines</span>
                 </div>
               </div>
@@ -127,14 +172,26 @@ export const CourseCard = ({
               <div className="flex items-center gap-2">
                 <div className="w-4 h-4 bg-blue-500 rounded flex-shrink-0"></div>
                 <div className="flex flex-col">
-                  <span className="font-medium text-xs text-muted-foreground">Volume 1</span>
+                  <span className="font-medium text-xs text-muted-foreground flex items-center gap-1">
+                    Volume 1
+                    <HelpTooltip 
+                      content="Volume horaire du premier quadrimestre"
+                      className="h-3 w-3"
+                    />
+                  </span>
                   <span className="text-lg font-semibold text-blue-600">{course.volume_total_vol1}h</span>
                 </div>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-4 h-4 bg-green-500 rounded flex-shrink-0"></div>
                 <div className="flex flex-col">
-                  <span className="font-medium text-xs text-muted-foreground">Volume 2</span>
+                  <span className="font-medium text-xs text-muted-foreground flex items-center gap-1">
+                    Volume 2
+                    <HelpTooltip 
+                      content="Volume horaire du second quadrimestre"
+                      className="h-3 w-3"
+                    />
+                  </span>
                   <span className="text-lg font-semibold text-green-600">{course.volume_total_vol2}h</span>
                 </div>
               </div>
@@ -185,19 +242,23 @@ export const CourseCard = ({
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => onStatusUpdate(course.id, !course.vacant)}
+                  onClick={() => handleStatusChange(!course.vacant)}
+                  className="transition-all-smooth hover-scale"
                 >
                   Marquer comme {course.vacant ? 'non vacant' : 'vacant'}
                 </Button>
                 
-                <Button onClick={() => setShowManagement(true)}>
+                <Button 
+                  onClick={() => setShowManagement(true)}
+                  className="transition-all-smooth hover-scale"
+                >
                   Gérer les attributions
                 </Button>
               </div>
             ) : course.vacant && onProposeTeam ? (
               <Button 
                 onClick={onProposeTeam}
-                className="w-full bg-green-600 hover:bg-green-700 text-white shadow-lg"
+                className="w-full bg-green-600 hover:bg-green-700 text-white shadow-lg transition-all-smooth hover-lift pulse-primary"
               >
                 <PlusCircle className="h-4 w-4 mr-2" />
                 Proposer une équipe
@@ -224,6 +285,17 @@ export const CourseCard = ({
         open={showManagement}
         onOpenChange={setShowManagement}
         onUpdate={onCourseUpdate}
+      />
+
+      <ConfirmationDialog
+        open={showConfirmation}
+        onOpenChange={setShowConfirmation}
+        title="Changer le statut du cours"
+        description={`Êtes-vous sûr de vouloir marquer ce cours comme ${pendingStatusChange ? 'vacant' : 'non vacant'} ?`}
+        confirmText="Confirmer"
+        cancelText="Annuler"
+        onConfirm={confirmStatusChange}
+        variant={pendingStatusChange ? "warning" : "default"}
       />
     </>
   );

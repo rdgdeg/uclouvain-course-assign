@@ -133,7 +133,7 @@ export const ModificationRequestForm = ({ course }: ModificationRequestFormProps
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogTrigger asChild>
+      <DialogTrigger>
         <Button variant="outline" size="sm" onClick={handleOpen}>
           <MessageSquare className="h-4 w-4 mr-2" />
           Demander une modification

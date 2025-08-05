@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Search, Filter, BookOpen, Users, Clock, X } from "lucide-react";
-import { Header } from "@/components/Header";
+import { Layout } from "@/components/Layout";
 import { CourseCard } from "@/components/CourseCard";
 import { CourseListView } from "@/components/CourseListView";
 import { ViewToggle } from "@/components/ViewToggle";
@@ -57,10 +57,8 @@ const Index = () => {
   const vacantCount = courses.filter(c => c.vacant).length;
 
   return (
-    <div className="min-h-screen bg-background">
-      <Header onAdminClick={() => navigate("/admin")} />
-      
-      <main className="container mx-auto px-4 py-8 mt-20 animate-fade-in">
+    <Layout>
+      <div className="container mx-auto px-4 animate-fade-in">
         {/* En-tête avec titre et statistiques */}
         <div className="mb-8 animate-fade-in-up">
           <div className="flex items-center gap-3 mb-2">
@@ -259,8 +257,8 @@ const Index = () => {
             </Button>
           </div>
         )}
-      </main>
-    </div>
+      </div>
+    </Layout>
   );
 };
 

@@ -835,8 +835,14 @@ export const AdminDashboard = () => {
                   <TableBody>
                     {courses.slice(0, 10).map((course) => (
                       <TableRow key={course.id}>
-                        <TableCell className="font-medium">{course.code}</TableCell>
-                        <TableCell>{course.title}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Badge variant="secondary" className="font-bold px-2 py-1 bg-blue-100 text-blue-800 border-blue-300">
+                              {course.code}
+                            </Badge>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-sm">{course.title}</TableCell>
                         <TableCell>{course.faculty}</TableCell>
                         <TableCell>
                           <Badge className={course.vacant ? "bg-red-100 text-red-800" : "bg-green-100 text-green-800"}>

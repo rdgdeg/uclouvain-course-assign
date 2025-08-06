@@ -42,7 +42,7 @@ export const UnifiedCourseManagement: React.FC = () => {
       label: "Gestion détaillée",
       icon: BookOpen,
       description: "Analyse et commission",
-      component: <ComprehensiveCourseManagement />
+      component: <ComprehensiveCourseManagement academicYear="2024-2025" />
     },
     {
       id: "import",

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -18,7 +18,6 @@ import {
   RefreshCw,
   Settings,
   Bell,
-  TestTube,
   TrendingUp,
   Calendar,
   Clock,
@@ -38,10 +37,10 @@ import {
 } from "lucide-react";
 import { useCourses } from "@/hooks/useCourses";
 import { useToast } from "@/hooks/use-toast";
-import { FacultyStatsCard } from "@/components/admin/FacultyStatsCard";
-import { AdminFilters } from "@/components/admin/AdminFilters";
-import { CourseCard } from "@/components/CourseCard";
-import { AdminNavigation } from "@/components/admin/AdminNavigation";
+
+import { AdminSidebar } from "@/components/admin/AdminSidebar";
+import { AdminMobileHeader } from "@/components/admin/AdminMobileHeader";
+import { PageHeader } from "@/components/admin/PageHeader";
 import { TeacherManagement } from "@/components/admin/TeacherManagement";
 import { ModificationRequests } from "@/components/admin/ModificationRequests";
 import { AssignmentManagement } from "@/components/admin/AssignmentManagement";
@@ -53,32 +52,40 @@ import { ProposalReviewPanel } from "@/components/admin/ProposalReviewPanel";
 import { DatabaseTestPanel } from "@/components/admin/DatabaseTestPanel";
 import { EmailTestPanel } from "@/components/admin/EmailTestPanel";
 import { AdminDashboard } from "@/components/admin/AdminDashboard";
-import { TemporaryPlaceholder } from "@/components/TemporaryPlaceholder";
-import { SimplifiedTestComponent } from "@/components/admin/SimplifiedTestComponent";
+import { UnifiedCourseManagement } from "@/components/admin/UnifiedCourseManagement";
+import { UnifiedTeacherManagement } from "@/components/admin/UnifiedTeacherManagement";
+import { UnifiedToolsPanel } from "@/components/admin/UnifiedToolsPanel";
+import { ErrorBoundary, DefaultErrorFallback } from "@/components/ErrorBoundary";
+import { AdminNotifications } from '@/components/admin/AdminNotifications';
 
 const Admin = () => {
   const [password, setPassword] = useState("");
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [activeTab, setActiveTab] = useState("dashboard");
-  const [searchTerm, setSearchTerm] = useState("");
-  const [selectedFaculty, setSelectedFaculty] = useState("all");
-  const [selectedStatus, setSelectedStatus] = useState("all");
-  const [sortBy, setSortBy] = useState("title");
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
-  const [viewMode, setViewMode] = useState<'overview' | 'courses'>('overview');
-  const [facultyFilter, setFacultyFilter] = useState<string>("");
-  const [statusFilter, setStatusFilter] = useState<'all' | 'vacant' | 'assigned' | 'issues'>('all');
-  const [selectedSchool, setSelectedSchool] = useState("all");
-  const [selectedVolumeValidation, setSelectedVolumeValidation] = useState("all");
-  const [showQuickActions, setShowQuickActions] = useState(false);
   const [lastActivity, setLastActivity] = useState<Date>(new Date());
+  const [globalSearchQuery, setGlobalSearchQuery] = useState("");
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   
   const navigate = useNavigate();
   const { courses, loading, validateHourDistribution, updateCourseStatus, fetchCourses } = useCourses();
   const { toast } = useToast();
 
-  // Mot de passe simple pour l'accès admin
-  const ADMIN_PASSWORD = "woluwe1200";
+  // Mot de passe sécurisé via variable d'environnement
+  const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD || "woluwe1200";
+
+  // Timeout de session automatique (30 min)
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const timeout = setTimeout(() => {
+      handleLogout();
+      toast({
+        title: "Session expirée",
+        description: "Votre session a expiré. Veuillez vous reconnecter.",
+        variant: "destructive",
+      });
+    }, 30 * 60 * 1000); // 30 minutes
+    return () => clearTimeout(timeout);
+  }, [isAuthenticated, lastActivity]);
 
   useEffect(() => {
     const authStatus = localStorage.getItem("admin_authenticated");
@@ -117,29 +124,7 @@ const Admin = () => {
     setPassword("");
   };
 
-  // Get unique faculties and subcategories
-  const faculties = useMemo(() => {
-    const facultySet = new Set(courses.map(c => c.faculty).filter(Boolean));
-    return Array.from(facultySet).sort();
-  }, [courses]);
 
-  const subcategories = useMemo(() => {
-    const subcategorySet = new Set(courses.map(c => c.subcategory).filter(Boolean));
-    return Array.from(subcategorySet).sort();
-  }, [courses]);
-
-  // Group courses by faculty
-  const coursesByFaculty = useMemo(() => {
-    const grouped: { [key: string]: typeof courses } = {};
-    courses.forEach(course => {
-      const faculty = course.faculty || "Non définie";
-      if (!grouped[faculty]) {
-        grouped[faculty] = [];
-      }
-      grouped[faculty].push(course);
-    });
-    return grouped;
-  }, [courses]);
 
   // Calcul des statistiques globales
   const globalStats = useMemo(() => {
@@ -160,29 +145,9 @@ const Admin = () => {
     };
   }, [courses, validateHourDistribution]);
 
-  // Activités récentes simulées
-  const recentActivities = useMemo(() => [
-    { id: 1, action: "Nouvelle proposition reçue", course: "LINFO1101", time: "2 min", type: "proposal" },
-    { id: 2, action: "Cours attribué", course: "LMATH1101", time: "15 min", type: "assignment" },
-    { id: 3, action: "Demande de modification", course: "LPHYS1101", time: "1h", type: "request" },
-    { id: 4, action: "Import d'enseignants", course: "Batch", time: "2h", type: "import" },
-  ], []);
 
-  const handleViewCourses = (faculty: string, filter: 'all' | 'vacant' | 'assigned' | 'issues') => {
-    setFacultyFilter(faculty);
-    setStatusFilter(filter);
-    setActiveTab('courses');
-  };
 
-  const handleClearFilters = () => {
-    setSearchTerm("");
-    setSelectedFaculty("all");
-    setSelectedStatus("all");
-    setFacultyFilter("");
-    setStatusFilter('all');
-    setSelectedSchool("all");
-    setSelectedVolumeValidation("all");
-  };
+
 
   const exportToCSV = () => {
     // Logique d'export CSV
@@ -192,35 +157,19 @@ const Admin = () => {
     });
   };
 
-  const handleQuickAction = (action: string) => {
-    switch (action) {
-      case 'refresh':
-        fetchCourses();
-        toast({
-          title: "Actualisation",
-          description: "Données mises à jour",
-        });
-        break;
-      case 'import':
-        setActiveTab('import');
-        break;
-      case 'proposals':
-        setActiveTab('proposals');
-        break;
-      case 'settings':
-        setActiveTab('settings');
-        break;
-    }
-    setShowQuickActions(false);
-  };
+
 
   const renderContent = () => {
     switch (activeTab) {
       case 'dashboard':
-        return <TemporaryPlaceholder title="Tableau de bord" />;
+        return <AdminDashboard />;
+      case 'activity':
+        return <div className="text-center py-8">
+          <p className="text-gray-600">Page des activités récentes en cours de développement</p>
+        </div>;
       case 'teachers':
-        return <TeacherManagement />;
-      case 'import':
+        return <UnifiedTeacherManagement />;
+      case 'teacher-import':
         return <TeacherImportAndStatus />;
       case 'proposals':
         return <ProposalManagement />;
@@ -231,362 +180,91 @@ const Admin = () => {
       case 'email-test':
         return <EmailTestPanel />;
       case 'courses-proposals':
-        return <div className="p-8 text-center"><p>Composant temporairement désactivé pour résoudre les erreurs TypeScript</p></div>;
+        return <CourseProposalManagement />;
       case 'assignments':
-        return <div className="p-8 text-center"><p>Composant temporairement désactivé pour résoudre les erreurs TypeScript</p></div>;
+        return <AssignmentManagement />;
       case 'requests':
         return <ModificationRequests />;
       case 'courses-management':
-        return <div className="p-8 text-center"><p>Composant temporairement désactivé pour résoudre les erreurs TypeScript</p></div>;
-      case 'teachers-unified':
-        return <div className="p-8 text-center"><p>Composant temporairement désactivé pour résoudre les erreurs TypeScript</p></div>;
+        return <UnifiedCourseManagement />;
       case 'tools':
-        return <TemporaryPlaceholder title="Outils d'administration" />;
-      case 'system-test':
-        return <SimplifiedTestComponent />;
+        return <UnifiedToolsPanel />;
       case 'settings':
-        return renderSettingsTab();
+        return <div className="text-center py-8">
+          <p className="text-gray-600">Page des paramètres en cours de développement</p>
+        </div>;
+      case 'help':
+        return <div className="text-center py-8">
+          <p className="text-gray-600">Page d'aide et support en cours de développement</p>
+        </div>;
       default:
         return <AdminDashboard />;
     }
   };
 
-  const renderDashboardTab = () => (
-    <div className="space-y-6">
-      {/* En-tête du tableau de bord */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900">Tableau de Bord</h2>
-          <p className="text-gray-600">Vue d'ensemble de la gestion des cours</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowQuickActions(!showQuickActions)}
-          >
-            <Zap className="h-4 w-4 mr-2" />
-            Actions rapides
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={fetchCourses}
-          >
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Actualiser
-          </Button>
-        </div>
-      </div>
 
-      {/* Actions rapides */}
-      {showQuickActions && (
-        <Card className="border-2 border-blue-200 bg-blue-50/30">
-          <CardContent className="p-4">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handleQuickAction('refresh')}
-                className="flex items-center gap-2"
-              >
-                <RefreshCw className="h-4 w-4" />
-                Actualiser
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handleQuickAction('import')}
-                className="flex items-center gap-2"
-              >
-                <Upload className="h-4 w-4" />
-                Import
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handleQuickAction('proposals')}
-                className="flex items-center gap-2"
-              >
-                <FileText className="h-4 w-4" />
-                Propositions
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handleQuickAction('settings')}
-                className="flex items-center gap-2"
-              >
-                <Settings className="h-4 w-4" />
-                Paramètres
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setActiveTab('email-test')}
-                className="flex items-center gap-2"
-              >
-                <Send className="h-4 w-4" />
-                Test Emails
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setActiveTab('system-test')}
-                className="flex items-center gap-2"
-              >
-                <TestTube className="h-4 w-4" />
-                Test Système
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
-      {/* Statistiques globales */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="border-l-4 border-blue-500">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Total Cours</p>
-                <p className="text-2xl font-bold text-gray-900">{globalStats.total}</p>
-              </div>
-              <BookOpen className="h-8 w-8 text-blue-500" />
-            </div>
-          </CardContent>
-        </Card>
+  // Gestion des raccourcis clavier
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if (e.ctrlKey || e.metaKey) {
+      switch (e.key) {
+        case 'k':
+          e.preventDefault();
+          // Focus sur la barre de recherche
+          const searchInput = document.querySelector('input[placeholder*="Recherche globale"]') as HTMLInputElement;
+          if (searchInput) {
+            searchInput.focus();
+          }
+          break;
+        case '1':
+          e.preventDefault();
+          setActiveTab('dashboard');
+          break;
+        case '2':
+          e.preventDefault();
+          setActiveTab('courses');
+          break;
+        case '3':
+          e.preventDefault();
+          setActiveTab('teachers');
+          break;
+        case '4':
+          e.preventDefault();
+          setActiveTab('proposals');
+          break;
+        case '5':
+          e.preventDefault();
+          setActiveTab('requests');
+          break;
+        case '6':
+          e.preventDefault();
+          setActiveTab('settings');
+          break;
+      }
+    }
+    // Raccourci pour ouvrir les notifications
+    if (e.key === 'n' && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      setIsNotificationsOpen(true);
+    }
+  }, []);
 
-        <Card className="border-l-4 border-orange-500">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Cours Vacants</p>
-                <p className="text-2xl font-bold text-gray-900">{globalStats.vacant}</p>
-              </div>
-              <AlertTriangle className="h-8 w-8 text-orange-500" />
-            </div>
-          </CardContent>
-        </Card>
+  useEffect(() => {
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [handleKeyDown]);
 
-        <Card className="border-l-4 border-green-500">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Attribués</p>
-                <p className="text-2xl font-bold text-gray-900">{globalStats.assigned}</p>
-                <p className="text-sm text-green-600">{globalStats.completionRate}%</p>
-              </div>
-              <CheckCircle className="h-8 w-8 text-green-500" />
-            </div>
-          </CardContent>
-        </Card>
+  // Gestion de la recherche globale
+  const handleGlobalSearch = useCallback((query: string) => {
+    setGlobalSearchQuery(query);
+    // Si on est sur la gestion des cours, on peut filtrer directement
+    if (activeTab === 'courses') {
+      // La recherche sera gérée par le composant CentralizedCourseManagement
+      // via les props ou un contexte global
+    }
+    // Pour les autres onglets, on peut implémenter une recherche spécifique
+  }, [activeTab]);
 
-        <Card className="border-l-4 border-red-500">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Problèmes</p>
-                <p className="text-2xl font-bold text-gray-900">{globalStats.issues}</p>
-              </div>
-              <XCircle className="h-8 w-8 text-red-500" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Activités récentes et statistiques par faculté */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Activités récentes */}
-        <Card className="lg:col-span-1">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Activity className="h-5 w-5" />
-              Activités récentes
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {recentActivities.map((activity) => (
-                <div key={activity.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50">
-                  <div className={`w-2 h-2 rounded-full ${
-                    activity.type === 'proposal' ? 'bg-blue-500' :
-                    activity.type === 'assignment' ? 'bg-green-500' :
-                    activity.type === 'request' ? 'bg-orange-500' : 'bg-purple-500'
-                  }`} />
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">{activity.action}</p>
-                    <p className="text-xs text-gray-500">{activity.course} • {activity.time}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Statistiques par faculté */}
-        <div className="lg:col-span-2">
-          <h3 className="text-lg font-semibold mb-4">Statistiques par Faculté</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {Object.entries(coursesByFaculty).map(([faculty, facultyCourses]) => (
-              <FacultyStatsCard
-                key={faculty}
-                faculty={faculty}
-                courses={facultyCourses}
-                onViewCourses={handleViewCourses}
-              />
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
-  const renderCoursesTab = () => (
-    <div className="space-y-6">
-      {/* En-tête avec filtres */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900">Gestion des Cours</h2>
-          <p className="text-gray-600">Filtrez et gérez les cours</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={handleClearFilters}>
-            <Filter className="h-4 w-4 mr-2" />
-            Effacer filtres
-          </Button>
-          <Button variant="outline" size="sm" onClick={fetchCourses}>
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Actualiser
-          </Button>
-        </div>
-      </div>
-
-      {/* Filtres avancés */}
-      <AdminFilters
-        searchTerm={searchTerm}
-        onSearchChange={setSearchTerm}
-        selectedFaculty={selectedFaculty}
-        onFacultyChange={setSelectedFaculty}
-        selectedStatus={selectedStatus}
-        onStatusChange={setSelectedStatus}
-        selectedSchool={selectedSchool}
-        onSchoolChange={setSelectedSchool}
-        selectedVolumeValidation={selectedVolumeValidation}
-        onVolumeValidationChange={setSelectedVolumeValidation}
-        sortBy={sortBy}
-        onSortChange={setSortBy}
-        sortOrder={sortOrder}
-        onSortOrderChange={setSortOrder}
-        onClearFilters={handleClearFilters}
-      />
-
-      {/* Affichage des cours */}
-      {loading ? (
-        <div className="text-center py-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-          <p className="mt-2 text-gray-600">Chargement des cours...</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {courses
-            .filter(course => {
-              if (searchTerm) {
-                const term = searchTerm.toLowerCase();
-                return course.title.toLowerCase().includes(term) ||
-                       course.code?.toLowerCase().includes(term);
-              }
-              if (selectedFaculty !== "all") {
-                return course.faculty === selectedFaculty;
-              }
-              if (selectedStatus !== "all") {
-                switch (selectedStatus) {
-                  case "vacant":
-                    return course.vacant;
-                  case "assigned":
-                            return !course.vacant && course.assignments && course.assignments.length > 0;
-      case "pending":
-        return !course.vacant && (!course.assignments || course.assignments.length === 0);
-                  default:
-                    return true;
-                }
-              }
-              return true;
-            })
-            .map((course) => (
-              <CourseCard
-                key={course.id}
-                course={course}
-                onStatusUpdate={updateCourseStatus}
-                onCourseUpdate={fetchCourses}
-                validateHourDistribution={validateHourDistribution}
-                isAdmin={true}
-              />
-            ))}
-        </div>
-      )}
-    </div>
-  );
-
-  const renderSettingsTab = () => (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-gray-900">Paramètres</h2>
-        <p className="text-gray-600">Configuration de l'interface d'administration</p>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Informations de session */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Shield className="h-5 w-5" />
-              Session
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <p className="text-sm font-medium">Dernière activité</p>
-              <p className="text-sm text-gray-600">{lastActivity.toLocaleString()}</p>
-            </div>
-            <div>
-              <p className="text-sm font-medium">Statut</p>
-              <Badge variant="outline" className="bg-green-50 text-green-700">
-                Connecté
-              </Badge>
-            </div>
-            <Button variant="outline" onClick={handleLogout}>
-              Se déconnecter
-            </Button>
-          </CardContent>
-        </Card>
-
-        {/* Statistiques système */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Database className="h-5 w-5" />
-              Système
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <p className="text-sm font-medium">Version</p>
-              <p className="text-sm text-gray-600">1.0.0</p>
-            </div>
-            <div>
-              <p className="text-sm font-medium">Environnement</p>
-              <p className="text-sm text-gray-600">Développement</p>
-            </div>
-            <div>
-              <p className="text-sm font-medium">Base de données</p>
-              <p className="text-sm text-gray-600">Supabase</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    </div>
-  );
 
   if (!isAuthenticated) {
     return (
@@ -631,59 +309,67 @@ const Admin = () => {
     );
   }
 
-  const coursesWithIssues = courses.filter(course => !validateHourDistribution(course).isValid);
-  const totalTeachers = new Set(courses.flatMap(c => (c.assignments || []).map((a: any) => a.teacher_id))).size;
+
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header principal */}
-      <div className="bg-white border-b border-gray-200">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">
-                Interface d'Administration
-              </h1>
-              <p className="text-gray-600">
-                Gestion des cours - Année académique 2024-2025
-              </p>
-            </div>
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2 text-sm text-gray-600">
-                <Bell className="h-4 w-4" />
-                <span>{globalStats.vacant} cours vacants</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm text-gray-600">
-                <Clock className="h-4 w-4" />
-                <span>Dernière activité: {lastActivity.toLocaleTimeString()}</span>
-              </div>
+    <ErrorBoundary fallback={DefaultErrorFallback}>
+      <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
+        {/* Sidebar desktop */}
+        <div className="hidden lg:block">
+          <AdminSidebar
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+            onExportCSV={exportToCSV}
+            onLogout={handleLogout}
+            onGoHome={() => navigate("/")}
+            onGlobalSearch={handleGlobalSearch}
+            onOpenNotifications={() => setIsNotificationsOpen(true)}
+            stats={{
+              total: globalStats.total,
+              vacant: globalStats.vacant,
+              assigned: globalStats.assigned,
+              issues: globalStats.issues,
+              proposals: 0,
+              requests: 0,
+            }}
+          />
+        </div>
+        {/* Contenu principal */}
+        <div className="flex-1 flex flex-col">
+          {/* Header mobile */}
+          <AdminMobileHeader
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+            onExportCSV={exportToCSV}
+            onLogout={handleLogout}
+            onGoHome={() => navigate("/")}
+            onGlobalSearch={handleGlobalSearch}
+            onOpenNotifications={() => setIsNotificationsOpen(true)}
+            stats={{
+              total: globalStats.total,
+              vacant: globalStats.vacant,
+              assigned: globalStats.assigned,
+              issues: globalStats.issues,
+              proposals: 0,
+              requests: 0,
+            }}
+          />
+          {/* Contenu */}
+          <div className="flex-1 overflow-auto">
+            <div className="p-4 lg:p-6">
+              <PageHeader activeTab={activeTab} />
+              {renderContent()}
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Navigation */}
-      <AdminNavigation
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
-        onExportCSV={exportToCSV}
-        onLogout={handleLogout}
-        onGoHome={() => navigate("/")}
-        stats={{
-          total: globalStats.total,
-          vacant: globalStats.vacant,
-          assigned: globalStats.assigned,
-          issues: globalStats.issues,
-          proposals: 0, // À implémenter avec les vraies données
-          requests: 0,  // À implémenter avec les vraies données
-        }}
-      />
-
-      {/* Contenu principal */}
-      <div className="container mx-auto px-4 py-8">
-        {renderContent()}
+        {/* Centre de notifications */}
+        <AdminNotifications
+          isOpen={isNotificationsOpen}
+          onClose={() => setIsNotificationsOpen(false)}
+        />
       </div>
-    </div>
+    </ErrorBoundary>
   );
 };
 

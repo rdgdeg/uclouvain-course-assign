@@ -7,10 +7,10 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instanciate createClient with right options
+  // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "12.2.3 (519615d)"
+    PostgrestVersion: "12.2.12 (cd3cf9e)"
   }
   public: {
     Tables: {
@@ -87,6 +87,60 @@ export type Database = {
           },
         ]
       }
+      coordinator_validations: {
+        Row: {
+          comments: string | null
+          coordinator_id: string | null
+          course_id: number | null
+          created_at: string | null
+          id: string
+          reminder_sent_at: string | null
+          sent_at: string | null
+          status: string
+          updated_at: string | null
+          validated_at: string | null
+        }
+        Insert: {
+          comments?: string | null
+          coordinator_id?: string | null
+          course_id?: number | null
+          created_at?: string | null
+          id?: string
+          reminder_sent_at?: string | null
+          sent_at?: string | null
+          status?: string
+          updated_at?: string | null
+          validated_at?: string | null
+        }
+        Update: {
+          comments?: string | null
+          coordinator_id?: string | null
+          course_id?: number | null
+          created_at?: string | null
+          id?: string
+          reminder_sent_at?: string | null
+          sent_at?: string | null
+          status?: string
+          updated_at?: string | null
+          validated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coordinator_validations_coordinator_id_fkey"
+            columns: ["coordinator_id"]
+            isOneToOne: false
+            referencedRelation: "course_coordinators"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coordinator_validations_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       course_assignments: {
         Row: {
           course_id: number | null
@@ -131,6 +185,54 @@ export type Database = {
           },
           {
             foreignKeyName: "course_assignments_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teachers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      course_coordinators: {
+        Row: {
+          course_id: number | null
+          created_at: string | null
+          email: string
+          id: string
+          is_primary: boolean | null
+          name: string
+          teacher_id: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          course_id?: number | null
+          created_at?: string | null
+          email: string
+          id?: string
+          is_primary?: boolean | null
+          name: string
+          teacher_id?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          course_id?: number | null
+          created_at?: string | null
+          email?: string
+          id?: string
+          is_primary?: boolean | null
+          name?: string
+          teacher_id?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "course_coordinators_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_coordinators_teacher_id_fkey"
             columns: ["teacher_id"]
             isOneToOne: false
             referencedRelation: "teachers"
@@ -185,6 +287,60 @@ export type Database = {
           volume_total_vol2?: number | null
         }
         Relationships: []
+      }
+      hour_attributions: {
+        Row: {
+          assignment_type: string
+          course_id: number | null
+          created_at: string | null
+          id: string
+          notes: string | null
+          status: string | null
+          teacher_id: number | null
+          updated_at: string | null
+          vol1_hours: number | null
+          vol2_hours: number | null
+        }
+        Insert: {
+          assignment_type: string
+          course_id?: number | null
+          created_at?: string | null
+          id?: string
+          notes?: string | null
+          status?: string | null
+          teacher_id?: number | null
+          updated_at?: string | null
+          vol1_hours?: number | null
+          vol2_hours?: number | null
+        }
+        Update: {
+          assignment_type?: string
+          course_id?: number | null
+          created_at?: string | null
+          id?: string
+          notes?: string | null
+          status?: string | null
+          teacher_id?: number | null
+          updated_at?: string | null
+          vol1_hours?: number | null
+          vol2_hours?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hour_attributions_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hour_attributions_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teachers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       import_reports: {
         Row: {

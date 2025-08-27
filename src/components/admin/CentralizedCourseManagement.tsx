@@ -806,10 +806,10 @@ export const CentralizedCourseManagement: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <Label>École</Label>
+                  <Label>Sous-catégorie</Label>
                   <Input
-                    value={selectedCourse.school || ''}
-                    onChange={(e) => setSelectedCourse(prev => prev ? { ...prev, school: e.target.value } : null)}
+                    value={selectedCourse.subcategory || ''}
+                    onChange={(e) => setSelectedCourse(prev => prev ? { ...prev, subcategory: e.target.value } : null)}
                   />
                 </div>
                 <div>

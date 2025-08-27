@@ -491,12 +491,8 @@ export const AdminDashboard = () => {
         <TabsContent value="overview" className="space-y-6">
           {/* Notifications et alertes */}
           <AdminNotifications
-            proposalsCount={stats.pendingProposals}
-            requestsCount={stats.pendingRequests}
-            vacantCoursesCount={stats.vacantCourses}
-            onViewProposals={() => setActiveTab('proposals')}
-            onViewRequests={() => setActiveTab('requests')}
-            onViewCourses={() => setActiveTab('courses')}
+            isOpen={false}
+            onClose={() => {}}
           />
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

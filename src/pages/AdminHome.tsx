@@ -82,7 +82,7 @@ const AdminHome = () => {
               </div>
 
               <Button 
-                onClick={() => navigate('/admin/attributions')} 
+                onClick={() => navigate('/controle-attributions')} 
                 className="w-full group"
                 size="lg"
               >
@@ -131,7 +131,7 @@ const AdminHome = () => {
               </div>
 
               <Button 
-                onClick={() => navigate('/admin/courses')} 
+                onClick={() => navigate('/cours-vacants')} 
                 variant="outline"
                 className="w-full group"
                 size="lg"

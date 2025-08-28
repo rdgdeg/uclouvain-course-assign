@@ -1,525 +1,213 @@
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, BookOpen, Users, MessageSquare, PlusCircle, ChevronDown, ChevronUp, Menu, AlertTriangle, RefreshCw } from "lucide-react";
-import { Header } from "@/components/Header";
-import { CourseCard } from "@/components/CourseCard";
-import { CourseListView } from "@/components/CourseListView";
-import { ViewToggle } from "@/components/ViewToggle";
-import { CourseFilter } from "@/components/CourseFilter";
-import { AssignmentProposalForm } from "@/components/AssignmentProposalForm";
-import { useCourses } from "@/hooks/useCourses";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import React from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuTrigger 
-} from "@/components/ui/dropdown-menu";
-import {
-  Pagination,
-  PaginationContent,
-  PaginationEllipsis,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from "@/components/ui/pagination";
-import { CourseCardSkeleton } from "@/components/ui/skeleton";
-import { FacultySchoolFilter } from "@/components/ui/FacultySchoolFilter";
-// SUPPRIMER import { t } from "../i18n/config";
-// SUPPRIMER import { useLanguage } from "../hooks/useLanguage";
+  BookOpen, 
+  CheckCircle, 
+  Users, 
+  Clock,
+  FileSpreadsheet,
+  Mail,
+  BarChart3,
+  ArrowRight,
+  GraduationCap,
+  Calendar,
+  Star,
+  TrendingUp
+} from 'lucide-react';
+import { Layout } from '@/components/Layout';
 
 const PublicIndex = () => {
   const navigate = useNavigate();
-  const [searchTerm, setSearchTerm] = useState("");
-  const [facultyFilter, setFacultyFilter] = useState("all");
-  const [schoolFilter, setSchoolFilter] = useState("all");
-  const [view, setView] = useState<'cards' | 'list'>('cards');
-  const [selectedCourse, setSelectedCourse] = useState<any>(null);
-  const [showProposalForm, setShowProposalForm] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [showActionsMenu, setShowActionsMenu] = useState(false);
-  const [showModificationForm, setShowModificationForm] = useState(false);
-  const { courses, loading, fetchCourses, error } = useCourses();
-  // SUPPRIMER const { lang } = useLanguage();
-
-  const COURSES_PER_PAGE = 12;
-
-  // Récupérer les cours avec propositions en attente pour les masquer
-  const { data: pendingProposals = [] } = useQuery({
-    queryKey: ['pending-proposals'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('assignment_proposals')
-        .select('course_id')
-        .eq('status', 'pending');
-      if (error) throw error;
-      return data.map(p => p.course_id);
-    }
-  });
-
-  // Options de facultés et sous-catégories
-  const facultyOptions = [
-    { value: "FSM", label: "FSM", subcategories: ["EDPH", "KINE"] },
-    { value: "FSP", label: "FSP", subcategories: [] },
-    { value: "FASB", label: "FASB", subcategories: ["FARM", "SBIM"] },
-    { value: "MEDE", label: "MEDE", subcategories: ["MED", "MDEN"] }
-  ];
-
-  const getSubcategoryOptions = () => {
-    if (facultyFilter === "all") return [];
-    const faculty = facultyOptions.find(f => f.value === facultyFilter);
-    return faculty?.subcategories || [];
-  };
-
-  // Filtrer les cours : seulement ceux vacants ET sans proposition en attente
-  const availableCourses = courses.filter(course => 
-    course.vacant && !pendingProposals.includes(course.id)
-  );
-
-  const filteredCourses = availableCourses.filter(course => {
-    // Recherche insensible à la casse dans le titre et le code
-    const searchLower = searchTerm.toLowerCase().trim();
-    const matchesSearch = searchTerm === "" || 
-      (course.title && course.title.toLowerCase().includes(searchLower)) ||
-      (course.code && course.code.toLowerCase().includes(searchLower)) ||
-      (course.faculty && course.faculty.toLowerCase().includes(searchLower)) ||
-      (course.subcategory && course.subcategory.toLowerCase().includes(searchLower));
-    
-    // Filtrage par faculté
-    const matchesFaculty = facultyFilter === "all" || course.faculty === facultyFilter;
-    
-    // Filtrage par école
-    const matchesSchool = schoolFilter === "all" || course.subcategory === schoolFilter;
-    
-    return matchesSearch && matchesFaculty && matchesSchool;
-  });
-
-  // Pagination
-  const totalPages = Math.ceil(filteredCourses.length / COURSES_PER_PAGE);
-  
-  // Réinitialiser la page courante si elle dépasse le nombre total de pages
-  const validCurrentPage = Math.min(currentPage, Math.max(1, totalPages));
-  if (validCurrentPage !== currentPage && totalPages > 0) {
-    setCurrentPage(validCurrentPage);
-  }
-  
-  const startIndex = (validCurrentPage - 1) * COURSES_PER_PAGE;
-  const endIndex = startIndex + COURSES_PER_PAGE;
-  const currentCourses = filteredCourses.slice(startIndex, endIndex);
-
-  const handleProposalSuccess = () => {
-    fetchCourses();
-    setSelectedCourse(null);
-    setShowProposalForm(false);
-  };
-
-  const handlePageChange = (page: number) => {
-    setCurrentPage(page);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const handleFacultyFilter = (faculty: string) => {
-    setFacultyFilter(faculty);
-    setSchoolFilter("all");
-    setCurrentPage(1);
-  };
-
-  // Réinitialiser la pagination quand les filtres changent
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm, facultyFilter, schoolFilter]);
 
   return (
-    <div className="min-h-screen bg-background">
-      <Header showAdminButton={true} />
-      
-      <main className="container mx-auto px-4 py-8 pt-24">
-        {/* En-tête avec titre et menu d'actions */}
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold text-primary mb-2">
-            Portail de Gestion des Cours
+    <Layout showAdminButton={true}>
+      <div className="container mx-auto px-4 py-8 animate-fade-in">
+        {/* En-tête principal */}
+        <div className="text-center mb-16 animate-fade-in-up">
+          <div className="w-20 h-20 bg-gradient-to-r from-primary to-accent rounded-full flex items-center justify-center mx-auto mb-6">
+            <GraduationCap className="h-10 w-10 text-primary-foreground" />
+          </div>
+          <h1 className="text-5xl font-bold text-primary mb-6">
+            Gestion des Enseignements
           </h1>
-          <p className="text-muted-foreground mb-6">
-            Année académique 2024-2025
+          <p className="text-xl text-muted-foreground max-w-3xl mx-auto leading-relaxed">
+            Plateforme centralisée pour la gestion des cours, attributions et candidatures
           </p>
-          
-          {/* Menu d'actions principales */}
-          <div className="flex flex-col sm:flex-row gap-4 mb-8">
-            <DropdownMenu open={showActionsMenu} onOpenChange={setShowActionsMenu}>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="w-full sm:w-auto">
-                  <Menu className="h-4 w-4 mr-2" />
-                  Actions disponibles
-                  {showActionsMenu ? (
-                    <ChevronUp className="h-4 w-4 ml-2" />
-                  ) : (
-                    <ChevronDown className="h-4 w-4 ml-2" />
-                  )}
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-80">
-                <DropdownMenuItem 
-                  className="flex items-start p-4 cursor-pointer"
-                  onClick={() => setShowActionsMenu(false)}
-                >
-                  <div className="flex items-start">
-                    <PlusCircle className="h-6 w-6 text-green-600 mr-3 mt-1" />
-                    <div>
-                      <h3 className="font-semibold">Proposer une équipe</h3>
-                      <p className="text-sm text-muted-foreground">
-                        Pour un cours vacant de la liste
-                      </p>
-                    </div>
-                  </div>
-                </DropdownMenuItem>
-                
-                <DropdownMenuItem 
-                  className="flex items-start p-4 cursor-pointer"
-                  onClick={() => {
-                    setShowActionsMenu(false);
-                    navigate("/demandes-modification");
-                  }}
-                >
-                  <div className="flex items-start">
-                    <MessageSquare className="h-6 w-6 text-blue-600 mr-3 mt-1" />
-                    <div>
-                      <h3 className="font-semibold">Demander une modification</h3>
-                      <p className="text-sm text-muted-foreground">
-                        Pour un cours existant
-                      </p>
-                    </div>
-                  </div>
-                </DropdownMenuItem>
-                
-                <DropdownMenuItem 
-                  className="flex items-start p-4 cursor-pointer"
-                  onClick={() => {
-                    setShowActionsMenu(false);
-                    navigate("/candidature-libre");
-                  }}
-                >
-                  <div className="flex items-start">
-                    <PlusCircle className="h-6 w-6 text-purple-600 mr-3 mt-1" />
-                    <div>
-                      <h3 className="font-semibold">Candidature libre</h3>
-                      <p className="text-sm text-muted-foreground">
-                        Pour un cours non répertorié
-                      </p>
-                    </div>
-                  </div>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-
-            {/* Statistiques rapides */}
-            <div className="flex gap-4 text-sm text-muted-foreground">
-              <div className="flex items-center">
-                <BookOpen className="h-4 w-4 mr-1" />
-                {availableCourses.length} cours disponibles
-              </div>
-              <div className="flex items-center">
-                <Users className="h-4 w-4 mr-1" />
-                {pendingProposals.length} propositions en attente
-              </div>
-            </div>
+          <div className="flex items-center justify-center gap-3 mt-6">
+            <Calendar className="h-5 w-5 text-muted-foreground" />
+            <span className="text-lg text-muted-foreground">Année académique 2024-2025</span>
+            <Badge variant="default" className="ml-2">
+              <Star className="h-3 w-3 mr-1" />
+              Actif
+            </Badge>
           </div>
         </div>
 
-        {/* Section des cours vacants disponibles */}
-        <div className="mb-6">
-          <h2 className="text-2xl font-semibold mb-4">Cours vacants disponibles</h2>
+        {/* Choix principaux */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 max-w-7xl mx-auto mb-16">
           
-          {/* Statistiques détaillées */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            <Card>
-              <CardContent className="flex items-center p-6">
-                <BookOpen className="h-8 w-8 text-green-600 mr-4" />
-                <div>
-                  <p className="text-2xl font-bold">{availableCourses.length}</p>
-                  <p className="text-sm text-muted-foreground">Cours disponibles</p>
+          {/* Contrôle des attributions */}
+          <Card className="hover:shadow-2xl transition-all duration-500 hover:scale-105 border-2 hover:border-primary/30 animate-slide-in-left group">
+            <CardHeader className="pb-6">
+              <div className="flex items-center gap-4 mb-6">
+                <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <BarChart3 className="h-8 w-8 text-white" />
                 </div>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardContent className="flex items-center p-6">
-                <Users className="h-8 w-8 text-blue-600 mr-4" />
                 <div>
-                  <p className="text-2xl font-bold">{pendingProposals.length}</p>
-                  <p className="text-sm text-muted-foreground">Propositions en attente</p>
+                  <CardTitle className="text-2xl">Contrôle des Attributions</CardTitle>
+                  <Badge variant="default" className="mt-2">
+                    <TrendingUp className="h-3 w-3 mr-1" />
+                    Année en cours
+                  </Badge>
                 </div>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardContent className="flex items-center p-6">
-                <MessageSquare className="h-8 w-8 text-orange-600 mr-4" />
-                <div>
-                  <p className="text-2xl font-bold">
-                    {courses.filter(c => !c.vacant && c.assignments?.length > 0).length}
-                  </p>
-                  <p className="text-sm text-muted-foreground">Cours attribués</p>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-
-        {/* Filtres et recherche */}
-        <div className="space-y-4 mb-6">
-          <div className="relative">
-            <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-            <Input
-              type="text"
-              placeholder="Rechercher un cours..."
-              value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
-            {searchTerm && (
-              <button
-                onClick={() => setSearchTerm("")}
-                className="absolute right-3 top-3 h-4 w-4 text-muted-foreground hover:text-foreground"
-              >
-                ×
-              </button>
-            )}
-          </div>
-          
-          <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
-            <div className="flex flex-col md:flex-row gap-4">
-              <Select 
-                value={facultyFilter} 
-                onValueChange={(value) => {
-                  setFacultyFilter(value);
-                  setSchoolFilter("all");
-                  setCurrentPage(1);
-                }}
-              >
-                <SelectTrigger className="w-full md:w-48">
-                  <SelectValue placeholder="Faculté" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Toutes les facultés</SelectItem>
-                  {facultyOptions.map(faculty => (
-                    <SelectItem key={faculty.value} value={faculty.value}>
-                      {faculty.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              {getSubcategoryOptions().length > 0 && (
-                <Select 
-                  value={schoolFilter} 
-                  onValueChange={(value) => {
-                    setSchoolFilter(value);
-                    setCurrentPage(1);
-                  }}
-                >
-                  <SelectTrigger className="w-full md:w-48">
-                    <SelectValue placeholder="École" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Toutes les écoles</SelectItem>
-                    {getSubcategoryOptions().map(school => (
-                      <SelectItem key={school} value={school}>
-                        {school}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            </div>
-
-            <ViewToggle view={view} onViewChange={setView} />
-          </div>
-          
-          {/* Indicateur de résultats de recherche */}
-          {(searchTerm || facultyFilter !== "all" || schoolFilter !== "all") && (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Search className="h-4 w-4" />
-              <span>
-                {filteredCourses.length} résultat{filteredCourses.length !== 1 ? 's' : ''} trouvé{filteredCourses.length !== 1 ? 's' : ''}
-                {searchTerm && ` pour "${searchTerm}"`}
-              </span>
-              {(searchTerm || facultyFilter !== "all" || schoolFilter !== "all") && (
-                <button
-                  onClick={() => {
-                    setSearchTerm("");
-                    setFacultyFilter("all");
-                    setSchoolFilter("all");
-                  }}
-                  className="text-blue-600 hover:text-blue-800 underline"
-                >
-                  Effacer les filtres
-                </button>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Liste des cours avec pagination */}
-        {loading ? (
-          <div className="space-y-6">
-            <div className="text-center py-4">
-              <p className="text-muted-foreground">Chargement des cours...</p>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {Array.from({ length: 6 }).map((_, index) => (
-                <CourseCardSkeleton key={index} />
-              ))}
-            </div>
-          </div>
-        ) : error ? (
-          <div className="text-center py-12">
-            <div className="max-w-md mx-auto">
-              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <AlertTriangle className="h-8 w-8 text-red-600" />
               </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                Erreur de chargement
-              </h3>
-              <p className="text-gray-600 mb-4">
-                {error}
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <p className="text-muted-foreground text-lg leading-relaxed">
+                Consultez les cours de l'année, leurs attributions, cotitulaires et répartitions horaires. 
+                Demandez des modifications si nécessaire.
               </p>
+              
+              <div className="space-y-4">
+                <div className="flex items-center gap-4 p-3 bg-blue-50 rounded-lg">
+                  <FileSpreadsheet className="h-5 w-5 text-blue-600" />
+                  <span className="text-sm font-medium">Visualisation des cours et attributions</span>
+                </div>
+                <div className="flex items-center gap-4 p-3 bg-green-50 rounded-lg">
+                  <CheckCircle className="h-5 w-5 text-green-600" />
+                  <span className="text-sm font-medium">Vérification des volumes horaires</span>
+                </div>
+                <div className="flex items-center gap-4 p-3 bg-purple-50 rounded-lg">
+                  <Mail className="h-5 w-5 text-purple-600" />
+                  <span className="text-sm font-medium">Demandes de modification</span>
+                </div>
+                <div className="flex items-center gap-4 p-3 bg-orange-50 rounded-lg">
+                  <Users className="h-5 w-5 text-orange-600" />
+                  <span className="text-sm font-medium">Gestion des cotitulaires</span>
+                </div>
+              </div>
+
               <Button 
-                onClick={fetchCourses}
-                variant="outline"
-                className="flex items-center gap-2"
+                onClick={() => navigate('/controle-attributions')} 
+                className="w-full group text-lg py-6"
+                size="lg"
               >
-                <RefreshCw className="h-4 w-4" />
-                Réessayer
+                Accéder au contrôle
+                <ArrowRight className="h-5 w-5 ml-2 group-hover:translate-x-2 transition-transform" />
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Cours vacants */}
+          <Card className="hover:shadow-2xl transition-all duration-500 hover:scale-105 border-2 hover:border-accent/30 animate-slide-in-right group">
+            <CardHeader className="pb-6">
+              <div className="flex items-center gap-4 mb-6">
+                <div className="w-16 h-16 bg-gradient-to-r from-green-500 to-green-600 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <BookOpen className="h-8 w-8 text-white" />
+                </div>
+                <div>
+                  <CardTitle className="text-2xl">Cours Vacants</CardTitle>
+                  <Badge variant="secondary" className="mt-2">
+                    <Clock className="h-3 w-3 mr-1" />
+                    Attribution libre
+                  </Badge>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <p className="text-muted-foreground text-lg leading-relaxed">
+                Explorez les cours disponibles et proposez votre candidature individuelle 
+                ou en équipe pour l'enseignement.
+              </p>
+              
+              <div className="space-y-4">
+                <div className="flex items-center gap-4 p-3 bg-green-50 rounded-lg">
+                  <BookOpen className="h-5 w-5 text-green-600" />
+                  <span className="text-sm font-medium">Catalogue des cours disponibles</span>
+                </div>
+                <div className="flex items-center gap-4 p-3 bg-blue-50 rounded-lg">
+                  <Users className="h-5 w-5 text-blue-600" />
+                  <span className="text-sm font-medium">Candidatures individuelles et équipes</span>
+                </div>
+                <div className="flex items-center gap-4 p-3 bg-orange-50 rounded-lg">
+                  <Clock className="h-5 w-5 text-orange-600" />
+                  <span className="text-sm font-medium">Suivi des candidatures</span>
+                </div>
+                <div className="flex items-center gap-4 p-3 bg-purple-50 rounded-lg">
+                  <CheckCircle className="h-5 w-5 text-purple-600" />
+                  <span className="text-sm font-medium">Attribution rapide</span>
+                </div>
+              </div>
+
+              <Button 
+                onClick={() => navigate('/cours-vacants')} 
+                variant="outline"
+                className="w-full group text-lg py-6 border-2"
+                size="lg"
+              >
+                Voir les cours vacants
+                <ArrowRight className="h-5 w-5 ml-2 group-hover:translate-x-2 transition-transform" />
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Statistiques rapides */}
+        <div className="animate-fade-in-up" style={{animationDelay: "0.6s"}}>
+          <h2 className="text-3xl font-semibold text-center mb-10">Vue d'ensemble</h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 max-w-5xl mx-auto">
+            <Card className="text-center hover:shadow-lg transition-all duration-300 hover:scale-105">
+              <CardContent className="p-6">
+                <div className="text-3xl font-bold text-blue-600 mb-2">156</div>
+                <div className="text-sm text-muted-foreground font-medium">Cours total</div>
+              </CardContent>
+            </Card>
+            <Card className="text-center hover:shadow-lg transition-all duration-300 hover:scale-105">
+              <CardContent className="p-6">
+                <div className="text-3xl font-bold text-green-600 mb-2">133</div>
+                <div className="text-sm text-muted-foreground font-medium">Attribués</div>
+              </CardContent>
+            </Card>
+            <Card className="text-center hover:shadow-lg transition-all duration-300 hover:scale-105">
+              <CardContent className="p-6">
+                <div className="text-3xl font-bold text-orange-600 mb-2">23</div>
+                <div className="text-sm text-muted-foreground font-medium">Vacants</div>
+              </CardContent>
+            </Card>
+            <Card className="text-center hover:shadow-lg transition-all duration-300 hover:scale-105">
+              <CardContent className="p-6">
+                <div className="text-3xl font-bold text-purple-600 mb-2">47</div>
+                <div className="text-sm text-muted-foreground font-medium">Candidatures</div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+
+        {/* Actions rapides */}
+        <div className="mt-16 text-center animate-fade-in-up" style={{animationDelay: "0.8s"}}>
+          <div className="bg-gradient-to-r from-muted/30 to-muted/10 rounded-2xl p-8 max-w-4xl mx-auto">
+            <h3 className="text-xl font-semibold mb-6">Actions rapides</h3>
+            <div className="flex flex-wrap justify-center gap-4">
+              <Button variant="ghost" size="lg" onClick={() => navigate('/candidature-libre')}>
+                <Users className="h-4 w-4 mr-2" />
+                Candidature libre
+              </Button>
+              <Button variant="ghost" size="lg" onClick={() => navigate('/demandes-modification')}>
+                <Mail className="h-4 w-4 mr-2" />
+                Demande de modification
+              </Button>
+              <Button variant="ghost" size="lg" onClick={() => navigate('/admin')}>
+                <BarChart3 className="h-4 w-4 mr-2" />
+                Administration
               </Button>
             </div>
           </div>
-        ) : (
-          <>
-            {currentCourses.length === 0 ? (
-              <div className="text-center py-12">
-                <div className="max-w-md mx-auto">
-                  <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <Search className="h-8 w-8 text-gray-400" />
-                  </div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                    Aucun cours trouvé
-                  </h3>
-                  <p className="text-gray-600">
-                    {searchTerm || facultyFilter !== "all" || schoolFilter !== "all"
-                      ? "Aucun cours ne correspond à vos critères de recherche."
-                      : "Aucun cours vacant disponible pour le moment."}
-                  </p>
-                  {(searchTerm || facultyFilter !== "all" || schoolFilter !== "all") && (
-                    <Button 
-                      onClick={() => {
-                        setSearchTerm("");
-                        setFacultyFilter("all");
-                        setSchoolFilter("all");
-                      }}
-                      variant="outline"
-                      className="mt-4"
-                    >
-                      Effacer les filtres
-                    </Button>
-                  )}
-                </div>
-              </div>
-            ) : (
-              <>
-                {view === 'cards' ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
-                    {currentCourses.map((course) => (
-                      <CourseCard
-                        key={course.id}
-                        course={course}
-                        onStatusUpdate={async () => {}}
-                        onCourseUpdate={fetchCourses}
-                        validateHourDistribution={() => ({ isValid: true })}
-                        isAdmin={false}
-                        onProposeTeam={() => {
-                          setSelectedCourse(course);
-                          setShowProposalForm(true);
-                        }}
-                        onFacultyFilter={handleFacultyFilter}
-                      />
-                    ))}
-                  </div>
-                ) : (
-                  <CourseListView
-                    courses={currentCourses}
-                    onStatusUpdate={async () => {}}
-                    onCourseUpdate={fetchCourses}
-                    validateHourDistribution={() => ({ isValid: true })}
-                    isAdmin={false}
-                  />
-                )}
-              </>
-            )}
-          </>
-        )}
-
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <Pagination className="mb-6">
-            <PaginationContent>
-              <PaginationItem>
-                <PaginationPrevious 
-                  onClick={() => handlePageChange(currentPage - 1)}
-                  className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
-                />
-              </PaginationItem>
-              
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                <PaginationItem key={page}>
-                  <PaginationLink
-                    isActive={currentPage === page}
-                    onClick={() => handlePageChange(page)}
-                    className="cursor-pointer"
-                  >
-                    {page}
-                  </PaginationLink>
-                </PaginationItem>
-              ))}
-              
-              <PaginationItem>
-                <PaginationNext 
-                  onClick={() => handlePageChange(currentPage + 1)}
-                  className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
-                />
-              </PaginationItem>
-            </PaginationContent>
-          </Pagination>
-        )}
-
-        {/* Informations de pagination */}
-        {filteredCourses.length > 0 && (
-          <div className="text-center text-sm text-muted-foreground mb-6">
-            Affichage de {startIndex + 1} à {Math.min(endIndex, filteredCourses.length)} 
-            sur {filteredCourses.length} cours
-          </div>
-        )}
-      </main>
-
-      {/* Formulaire de proposition d'équipe */}
-      {selectedCourse && (
-        <AssignmentProposalForm
-          course={selectedCourse}
-          open={showProposalForm}
-          onOpenChange={setShowProposalForm}
-          onSuccess={handleProposalSuccess}
-        />
-      )}
-
-
-
-
-    </div>
+        </div>
+      </div>
+    </Layout>
   );
 };
 

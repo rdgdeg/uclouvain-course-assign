@@ -5,10 +5,9 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import PublicIndex from "./pages/PublicIndex";
-import Index from "./pages/Index";
+import CourseVacancy from "./pages/CourseVacancy";
 import Admin from "./pages/Admin";
-import AdminHome from "./pages/AdminHome";
-import AdminAttributions from "./pages/AdminAttributions";
+import AttributionControl from "./pages/AttributionControl";
 import NotFound from "./pages/NotFound";
 import FreeProposal from "./pages/FreeProposal";
 import ModificationRequests from "./pages/ModificationRequests";
@@ -60,9 +59,8 @@ const App: React.FC = () => {
             <Route path="/" element={<PublicIndex />} />
             <Route path="/candidature-libre" element={<FreeProposal />} />
             <Route path="/demandes-modification" element={<ModificationRequests />} />
-            <Route path="/portail" element={<AdminHome />} />
-            <Route path="/controle-attributions" element={<AdminAttributions />} />
-            <Route path="/cours-vacants" element={<Index />} />
+            <Route path="/controle-attributions" element={<AttributionControl />} />
+            <Route path="/cours-vacants" element={<CourseVacancy />} />
             <Route path="/admin" element={
               <AppAuth>
                 <Admin />

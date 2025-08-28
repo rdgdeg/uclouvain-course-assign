@@ -1,11 +1,10 @@
-
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Filter, BookOpen, Users, Clock, X } from "lucide-react";
+import { Search, Filter, BookOpen, Users, Clock, X, ArrowLeft } from "lucide-react";
 import { Layout } from "@/components/Layout";
 import { CourseCard } from "@/components/CourseCard";
 import { CourseListView } from "@/components/CourseListView";
@@ -16,7 +15,7 @@ import { FacultySchoolFilter } from "@/components/ui/FacultySchoolFilter";
 import { HelpTooltip } from "@/components/ui/HelpTooltip";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 
-const Index = () => {
+const CourseVacancy = () => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -26,8 +25,6 @@ const Index = () => {
   const [showOnlyVacant, setShowOnlyVacant] = useState(true);
   const [isAdmin] = useState(false); // TODO: Implement real admin check
   const { courses, loading, fetchCourses, updateCourseStatus, validateHourDistribution } = useCourses();
-
-
 
   const filteredCourses = courses.filter(course => {
     // Filtre d'affichage principal (vacant ou tous)
@@ -49,8 +46,6 @@ const Index = () => {
     
     const matchesSchool = schoolFilter === "all" || course.subcategory === schoolFilter;
     
-
-    
     return matchesSearch && matchesStatus && matchesFaculty && matchesSchool;
   });
 
@@ -59,12 +54,29 @@ const Index = () => {
   return (
     <Layout>
       <div className="container mx-auto px-4 animate-fade-in">
+        {/* Navigation */}
+        <div className="flex items-center gap-4 mb-6">
+          <Button
+            variant="outline"
+            onClick={() => navigate('/')}
+            className="flex items-center gap-2"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Retour à l'accueil
+          </Button>
+          <div className="h-6 w-px bg-border" />
+          <div>
+            <h1 className="text-2xl font-bold text-primary">Gestion des Cours Vacants</h1>
+            <p className="text-muted-foreground">Consultez les cours disponibles et proposez votre candidature</p>
+          </div>
+        </div>
+
         {/* En-tête avec titre et statistiques */}
         <div className="mb-8 animate-fade-in-up">
           <div className="flex items-center gap-3 mb-2">
-            <h1 className="text-3xl font-bold text-primary">
-              Gestion des Cours Vacants
-            </h1>
+            <h2 className="text-xl font-semibold text-primary">
+              Cours Disponibles
+            </h2>
             <HelpTooltip 
               content="Interface de gestion des cours vacants et des attributions. Vous pouvez consulter, filtrer et proposer des équipes pour les cours disponibles."
               icon="info"
@@ -262,4 +274,4 @@ const Index = () => {
   );
 };
 
-export default Index;
+export default CourseVacancy;

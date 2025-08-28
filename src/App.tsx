@@ -7,6 +7,8 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import PublicIndex from "./pages/PublicIndex";
 import Index from "./pages/Index";
 import Admin from "./pages/Admin";
+import AdminHome from "./pages/AdminHome";
+import AdminAttributions from "./pages/AdminAttributions";
 import NotFound from "./pages/NotFound";
 import FreeProposal from "./pages/FreeProposal";
 import ModificationRequests from "./pages/ModificationRequests";
@@ -58,12 +60,22 @@ const App: React.FC = () => {
             <Route path="/" element={<PublicIndex />} />
             <Route path="/candidature-libre" element={<FreeProposal />} />
             <Route path="/demandes-modification" element={<ModificationRequests />} />
-            <Route path="/admin-courses" element={
+            <Route path="/admin" element={
+              <AppAuth>
+                <AdminHome />
+              </AppAuth>
+            } />
+            <Route path="/admin/attributions" element={
+              <AppAuth>
+                <AdminAttributions />
+              </AppAuth>
+            } />
+            <Route path="/admin/courses" element={
               <AppAuth>
                 <Index />
               </AppAuth>
             } />
-            <Route path="/admin" element={
+            <Route path="/admin/dashboard" element={
               <AppAuth>
                 <Admin />
               </AppAuth>

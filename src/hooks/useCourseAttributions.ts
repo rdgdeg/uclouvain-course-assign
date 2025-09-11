@@ -20,11 +20,15 @@ export interface CourseWithAttributions {
     id: string;
     teacher_name: string;
     teacher_email: string;
+    teacher_status?: string;
     vol1_hours: number;
     vol2_hours: number;
     candidature_status: string;
     is_coordinator: boolean;
     assignment_type: string;
+    status?: string;
+    notes?: string;
+    faculty?: string;
   }[];
   total_assigned_vol1: number;
   total_assigned_vol2: number;
@@ -53,7 +57,7 @@ export const useCourseAttributions = () => {
 
       if (coursesError) throw coursesError;
 
-      // Récupérer les attributions
+      // Récupérer les attributions avec plus de détails
       const { data: attributionsData, error: attributionsError } = await supabase
         .from('hour_attributions')
         .select(`
@@ -61,7 +65,8 @@ export const useCourseAttributions = () => {
           teachers:teacher_id (
             first_name,
             last_name,
-            email
+            email,
+            status
           )
         `);
 
@@ -90,11 +95,15 @@ export const useCourseAttributions = () => {
             teacher_name: attr.teachers ? 
               `${attr.teachers.first_name} ${attr.teachers.last_name}` : 'N/A',
             teacher_email: attr.teachers?.email || '',
+            teacher_status: attr.teachers?.status || '',
             vol1_hours: Number(attr.vol1_hours) || 0,
             vol2_hours: Number(attr.vol2_hours) || 0,
             candidature_status: attr.candidature_status || '',
             is_coordinator: attr.is_coordinator || false,
-            assignment_type: attr.assignment_type || ''
+            assignment_type: attr.assignment_type || '',
+            status: attr.status || '',
+            notes: attr.notes || '',
+            faculty: attr.faculty || ''
           }));
 
         const total_assigned_vol1 = courseAttributions.reduce((sum, attr) => sum + attr.vol1_hours, 0);

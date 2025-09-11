@@ -85,7 +85,7 @@ export const useAttributionManagement = () => {
         .from('hour_attributions')
         .select(`
           *,
-          teacher:teachers(name, first_name, last_name),
+          teacher:teachers(first_name, last_name, email),
           course:courses(title, code)
         `)
         .order('course_id');

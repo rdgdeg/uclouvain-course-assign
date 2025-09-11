@@ -299,14 +299,13 @@ export const AttributionImportDialog: React.FC<{
 
           // 2. Traiter les enseignants et attributions
           for (const attribution of courseAttributions) {
-            // Vérifier si l'enseignant a des heures attribuées ou s'il est mentionné
-            if (!attribution.nom || !attribution.prenom || 
-                ((!attribution.vol1 || attribution.vol1 === 0) && 
-                 (!attribution.vol2_attrib || attribution.vol2_attrib === 0))) {
-              // Log pour debug
-              console.log(`Skipping attribution for ${attribution.nom} ${attribution.prenom} - no hours assigned`);
+            // Vérifier si l'enseignant a des données valides 
+            if (!attribution.nom || !attribution.prenom) {
+              console.log(`Skipping attribution - missing teacher name: ${JSON.stringify(attribution)}`);
               continue;
             }
+            
+            // Pas besoin de vérifier les heures, on peut avoir des attributions avec 0 heures
 
             // Créer/mettre à jour l'enseignant
             const { data: existingTeacher } = await supabase
@@ -341,26 +340,35 @@ export const AttributionImportDialog: React.FC<{
             }
 
             // 3. Créer l'attribution
+            const attributionToInsert = {
+              course_id: courseId,
+              teacher_id: teacherId,
+              vol1_hours: attribution.vol1 || 0,
+              vol2_hours: attribution.vol2_attrib || 0,
+              assignment_type: attribution.fonction || 'standard',
+              notes: [
+                attribution.remarque,
+                attribution.rem_spec,
+                attribution.remarque_candidature
+              ].filter(Boolean).join(' | ') || null,
+              status: 'active',
+              is_coordinator: attribution.fonction === 'Cotitulaire' || attribution.fonction === 'Coordinateur',
+              candidature_status: attribution.candidature || null,
+              faculty: attribution.dpt_charge || null
+            };
+            
+            console.log(`Creating attribution for ${attribution.nom} ${attribution.prenom}:`, attributionToInsert);
+            
             const { error: attributionError } = await supabase
               .from('hour_attributions')
-              .insert({
-                course_id: courseId,
-                teacher_id: teacherId,
-                vol1_hours: attribution.vol1 || 0,
-                vol2_hours: attribution.vol2_attrib || 0,
-                assignment_type: attribution.type || 'standard',
-                notes: [
-                  attribution.remarque,
-                  attribution.rem_spec,
-                  attribution.remarque_candidature
-                ].filter(Boolean).join(' | ') || null,
-                status: 'active'
-              });
+              .insert(attributionToInsert);
 
             if (attributionError) {
               result.warnings.push(`Attribution non créée pour ${attribution.nom} ${attribution.prenom} sur ${courseCode}: ${attributionError.message}`);
+              console.error('Attribution error:', attributionError);
             } else {
               result.attributions_created++;
+              console.log(`Attribution created successfully for ${attribution.nom} ${attribution.prenom}`);
             }
           }
 
@@ -372,12 +380,20 @@ export const AttributionImportDialog: React.FC<{
 
       setImportResult(result);
       
+      console.log('Import completed with result:', result);
+      
       if (result.success > 0) {
         toast({
           title: "Import terminé",
           description: `${result.courses_created} cours créés, ${result.teachers_created} enseignants créés, ${result.attributions_created} attributions créées`,
         });
         onSuccess?.();
+      } else if (result.errors.length > 0) {
+        toast({
+          title: "Import échoué",
+          description: `Erreurs: ${result.errors.length}. Vérifiez le rapport détaillé.`,
+          variant: "destructive"
+        });
       }
 
     } catch (error) {

@@ -10,6 +10,8 @@ export interface CourseWithAttributions {
   subcategory?: string;
   vol1_total: number;
   vol2_total: number;
+  volume_total_vol1: number;
+  volume_total_vol2: number;
   academic_year: string;
   vacant?: boolean;
   start_date?: string;
@@ -117,11 +119,14 @@ export const useCourseAttributions = () => {
         const validationStatus = validation?.status as 'pending' | 'validated' | 'needs_correction' | 'rejected' || 'pending';
         
         const has_volume_mismatch = 
-          total_assigned_vol1 !== (course.vol1_total || 0) || 
-          total_assigned_vol2 !== (course.vol2_total || 0);
+          total_assigned_vol1 !== (course.volume_total_vol1 || 0) || 
+          total_assigned_vol2 !== (course.volume_total_vol2 || 0);
 
         return {
           ...course,
+          // Mapper correctement les volumes
+          vol1_total: course.volume_total_vol1 || 0,
+          vol2_total: course.volume_total_vol2 || 0,
           attributions: courseAttributions,
           total_assigned_vol1,
           total_assigned_vol2,

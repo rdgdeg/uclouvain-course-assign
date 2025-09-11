@@ -7,9 +7,15 @@ export interface CourseWithAttributions {
   code: string;
   title: string;
   faculty: string;
+  subcategory?: string;
   vol1_total: number;
   vol2_total: number;
   academic_year: string;
+  vacant?: boolean;
+  start_date?: string;
+  duration_weeks?: number;
+  created_at: string;
+  updated_at: string;
   attributions: {
     id: string;
     teacher_name: string;

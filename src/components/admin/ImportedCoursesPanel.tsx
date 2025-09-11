@@ -309,74 +309,98 @@ export const ImportedCoursesPanel: React.FC = () => {
           <CardTitle>Cours et attributions ({filteredCourses.length})</CardTitle>
         </CardHeader>
         <CardContent>
-          {filteredCourses.length === 0 ? (
-            <p className="text-center text-muted-foreground py-8">
-              Aucun cours trouvé
-            </p>
+          {loading ? (
+            <div className="flex items-center justify-center py-8">
+              <RefreshCw className="h-6 w-6 animate-spin mr-2" />
+              Chargement des cours...
+            </div>
+          ) : filteredCourses.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-muted-foreground mb-4">
+                {courses.length === 0 ? "Aucun cours importé" : "Aucun cours ne correspond aux filtres"}
+              </p>
+              {courses.length === 0 && (
+                <p className="text-sm text-muted-foreground">
+                  Utilisez l'import CSV pour charger des cours
+                </p>
+              )}
+            </div>
           ) : (
-            <Accordion type="multiple" className="space-y-4">
+            <div className="space-y-2">
               {filteredCourses.map((course) => (
-                <AccordionItem key={course.id} value={course.id.toString()}>
-                  <AccordionTrigger className="hover:no-underline">
-                    <div className="flex items-center justify-between w-full mr-4">
+                <Card key={course.id} className="border-l-4 border-l-primary/20">
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
                       <div className="flex items-center gap-4">
                         <div>
-                          <div className="font-medium">{course.code}</div>
+                          <div className="font-medium text-lg">{course.code}</div>
                           <div className="text-sm text-muted-foreground">{course.title}</div>
                         </div>
-                        <Badge variant="outline">{course.faculty}</Badge>
+                        <Badge variant="outline">{course.faculty || 'Non définie'}</Badge>
                         {course.has_volume_mismatch && (
                           <Badge variant="destructive">
                             <AlertTriangle className="h-3 w-3 mr-1" />
-                            Incohérence
+                            Incohérence volumes
                           </Badge>
                         )}
                       </div>
-                      <div className="text-right text-sm text-muted-foreground">
-                        <div>Vol1: {course.total_assigned_vol1}/{course.vol1_total}</div>
-                        <div>Vol2: {course.total_assigned_vol2}/{course.vol2_total}</div>
+                      <div className="text-right text-sm">
+                        <div className="font-medium">Volumes</div>
+                        <div className="text-muted-foreground">
+                          Vol1: {course.total_assigned_vol1 || 0}/{course.vol1_total || 0}h
+                        </div>
+                        <div className="text-muted-foreground">
+                          Vol2: {course.total_assigned_vol2 || 0}/{course.vol2_total || 0}h
+                        </div>
                       </div>
                     </div>
-                  </AccordionTrigger>
-                  <AccordionContent>
-                    <div className="space-y-4 pt-4">
-                      {course.has_volume_mismatch && (
-                        <Alert>
-                          <AlertTriangle className="h-4 w-4" />
-                          <AlertDescription>
-                            Les volumes attribués ne correspondent pas aux volumes totaux du cours.
-                            Vol1: {course.total_assigned_vol1} attribué vs {course.vol1_total} total.
-                            Vol2: {course.total_assigned_vol2} attribué vs {course.vol2_total} total.
-                          </AlertDescription>
-                        </Alert>
-                      )}
+                  </CardHeader>
+                  <CardContent className="pt-0">
+                    {course.has_volume_mismatch && (
+                      <Alert className="mb-4">
+                        <AlertTriangle className="h-4 w-4" />
+                        <AlertDescription>
+                          Incohérence détectée - Vol1: {course.total_assigned_vol1} attribué vs {course.vol1_total} prévu, 
+                          Vol2: {course.total_assigned_vol2} attribué vs {course.vol2_total} prévu
+                        </AlertDescription>
+                      </Alert>
+                    )}
+                    
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-medium">Équipe enseignante</h4>
+                        <Badge variant="outline">{course.attributions.length} enseignant(s)</Badge>
+                      </div>
                       
-                      <div className="space-y-2">
-                        <h4 className="font-medium">Équipe enseignante ({course.attributions.length})</h4>
-                        {course.attributions.map((attribution) => (
-                          <div key={attribution.id} className="flex items-center justify-between p-3 border rounded-lg">
-                            <div className="flex items-center gap-3">
-                              <div>
-                                <div className="font-medium">{attribution.teacher_name}</div>
-                                <div className="text-sm text-muted-foreground">{attribution.teacher_email}</div>
+                      {course.attributions.length === 0 ? (
+                        <p className="text-sm text-muted-foreground italic">Aucune attribution définie</p>
+                      ) : (
+                        <div className="grid gap-2">
+                          {course.attributions.map((attribution) => (
+                            <div key={attribution.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                              <div className="flex items-center gap-3">
+                                <div>
+                                  <div className="font-medium">{attribution.teacher_name || 'Nom non défini'}</div>
+                                  <div className="text-sm text-muted-foreground">{attribution.teacher_email || 'Email non défini'}</div>
+                                </div>
+                                {attribution.is_coordinator && (
+                                  <Badge variant="secondary">Coordinateur</Badge>
+                                )}
+                                {attribution.candidature_status && getCandidatureBadge(attribution.candidature_status)}
                               </div>
-                              {attribution.is_coordinator && (
-                                <Badge variant="secondary">Coordinateur</Badge>
-                              )}
-                              {getCandidatureBadge(attribution.candidature_status)}
+                              <div className="text-right text-sm">
+                                <div>Vol1: {attribution.vol1_hours || 0}h</div>
+                                <div>Vol2: {attribution.vol2_hours || 0}h</div>
+                              </div>
                             </div>
-                            <div className="text-right text-sm">
-                              <div>Vol1: {attribution.vol1_hours}h</div>
-                              <div>Vol2: {attribution.vol2_hours}h</div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                  </AccordionContent>
-                </AccordionItem>
+                  </CardContent>
+                </Card>
               ))}
-            </Accordion>
+            </div>
           )}
         </CardContent>
       </Card>

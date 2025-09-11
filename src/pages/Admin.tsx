@@ -57,6 +57,7 @@ import { UnifiedTeacherManagement } from "@/components/admin/UnifiedTeacherManag
 import { UnifiedToolsPanel } from "@/components/admin/UnifiedToolsPanel";
 import { ErrorBoundary, DefaultErrorFallback } from "@/components/ErrorBoundary";
 import { AdminNotifications } from '@/components/admin/AdminNotifications';
+import { AttributionImportPanel } from "@/components/admin/AttributionImportPanel";
 
 const Admin = () => {
   const [password, setPassword] = useState("");

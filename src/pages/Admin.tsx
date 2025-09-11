@@ -58,6 +58,7 @@ import { UnifiedToolsPanel } from "@/components/admin/UnifiedToolsPanel";
 import { ErrorBoundary, DefaultErrorFallback } from "@/components/ErrorBoundary";
 import { AdminNotifications } from '@/components/admin/AdminNotifications';
 import { AttributionImportPanel } from "@/components/admin/AttributionImportPanel";
+import { ImportedCoursesPanel } from "@/components/admin/ImportedCoursesPanel";
 
 const Admin = () => {
   const [password, setPassword] = useState("");
@@ -192,6 +193,8 @@ const Admin = () => {
         return <UnifiedToolsPanel />;
       case 'attribution-import':
         return <AttributionImportPanel />;
+      case 'imported-courses':
+        return <ImportedCoursesPanel />;
       case 'settings':
         return <div className="text-center py-8">
           <p className="text-gray-600">Page des paramètres en cours de développement</p>

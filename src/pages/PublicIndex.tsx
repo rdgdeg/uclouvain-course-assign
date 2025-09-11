@@ -155,57 +155,6 @@ const PublicIndex = () => {
           </Card>
         </div>
 
-        {/* Statistiques rapides */}
-        <div className="animate-fade-in-up" style={{animationDelay: "0.6s"}}>
-          <h2 className="text-3xl font-semibold text-center mb-10">Vue d'ensemble</h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 max-w-5xl mx-auto">
-            <Card className="text-center hover:shadow-lg transition-all duration-300 hover:scale-105">
-              <CardContent className="p-6">
-                <div className="text-3xl font-bold text-blue-600 mb-2">156</div>
-                <div className="text-sm text-muted-foreground font-medium">Cours total</div>
-              </CardContent>
-            </Card>
-            <Card className="text-center hover:shadow-lg transition-all duration-300 hover:scale-105">
-              <CardContent className="p-6">
-                <div className="text-3xl font-bold text-green-600 mb-2">133</div>
-                <div className="text-sm text-muted-foreground font-medium">Attribués</div>
-              </CardContent>
-            </Card>
-            <Card className="text-center hover:shadow-lg transition-all duration-300 hover:scale-105">
-              <CardContent className="p-6">
-                <div className="text-3xl font-bold text-orange-600 mb-2">23</div>
-                <div className="text-sm text-muted-foreground font-medium">Vacants</div>
-              </CardContent>
-            </Card>
-            <Card className="text-center hover:shadow-lg transition-all duration-300 hover:scale-105">
-              <CardContent className="p-6">
-                <div className="text-3xl font-bold text-purple-600 mb-2">47</div>
-                <div className="text-sm text-muted-foreground font-medium">Candidatures</div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-
-        {/* Actions rapides */}
-        <div className="mt-16 text-center animate-fade-in-up" style={{animationDelay: "0.8s"}}>
-          <div className="bg-gradient-to-r from-muted/30 to-muted/10 rounded-2xl p-8 max-w-4xl mx-auto">
-            <h3 className="text-xl font-semibold mb-6">Actions rapides</h3>
-            <div className="flex flex-wrap justify-center gap-4">
-              <Button variant="ghost" size="lg" onClick={() => navigate('/candidature-libre')}>
-                <Users className="h-4 w-4 mr-2" />
-                Candidature libre
-              </Button>
-              <Button variant="ghost" size="lg" onClick={() => navigate('/demandes-modification')}>
-                <Mail className="h-4 w-4 mr-2" />
-                Demande de modification
-              </Button>
-              <Button variant="ghost" size="lg" onClick={() => navigate('/admin')}>
-                <BarChart3 className="h-4 w-4 mr-2" />
-                Administration
-              </Button>
-            </div>
-          </div>
-        </div>
       </div>
     </Layout>
   );

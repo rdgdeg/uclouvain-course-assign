@@ -15,10 +15,12 @@ interface AttributionData {
   inactif: string;
   etat_vac: string;
   cours_en_propo: string;
-  vol1_2025: number;
-  vol2: number;
+  vol1_old: number;
+  vol2_old: number;
   coef1: number;
   coef2: number;
+  vol1_total: number; // Vol.1 Total - volumes totaux du cours
+  vol2_total: number; // Vol.2 total - volumes totaux du cours
   periodicite: string;
   dpt_charge: string;
   dpt_attribution: string;
@@ -38,8 +40,8 @@ interface AttributionData {
   duree: string;
   cause_vac: string;
   cause_decision: string;
-  vol1: number;
-  vol2_attrib: number;
+  vol1_hours: number; // Vol1. - heures attribuées à l'enseignant
+  vol2_hours: number; // Vol2. - heures attribuées à l'enseignant
   mode_paiement_vol1: string;
   mode_paiement_vol2: string;
   poste: string;
@@ -115,12 +117,12 @@ export const AttributionImportDialog: React.FC<{
             'Inactif': 'inactif',
             'Etat vac.': 'etat_vac',
             'Cours en propo.': 'cours_en_propo',
-            'Vol1. 2025': 'vol1_2025',
-            'Vol2.': 'vol2',
+            'Vol1.': 'vol1_old', // Ancienne colonne vol1 du cours
+            'Vol2.': 'vol2_old', // Ancienne colonne vol2 du cours
             'Coef1': 'coef1',
             'Coef2': 'coef2',
-            'Vol.1 Total': 'vol1_2025', // Nouvelle colonne
-            'Vol.2 total': 'vol2', // Nouvelle colonne
+            'Vol.1 Total': 'vol1_total', // Volume total Vol1 du cours
+            'Vol.2 total': 'vol2_total', // Volume total Vol2 du cours
             'Périodicité': 'periodicite',
             'Dpt Charge': 'dpt_charge',
             'Dpt Attribution': 'dpt_attribution',
@@ -140,8 +142,6 @@ export const AttributionImportDialog: React.FC<{
             'Durée': 'duree',
             'Cause de vac.': 'cause_vac',
             'Cause décision': 'cause_decision',
-            'Vol1.': 'vol1',
-            'Vol2': 'vol2_attrib',
             'Mode paiement vol1': 'mode_paiement_vol1',
             'Mode paiement vol2': 'mode_paiement_vol2',
             'Poste': 'poste',
@@ -152,6 +152,19 @@ export const AttributionImportDialog: React.FC<{
             'Id équipe': 'id_equipe',
             'Candidature en ligne': 'candidature_en_ligne'
           };
+
+          // Mapping spécial pour les colonnes Vol1. et Vol2. qui sont les heures attribuées (colonnes AC et AD)
+          const volumeMapping: { [key: string]: keyof AttributionData } = {};
+          headers.forEach((header, index) => {
+            // Identifier les colonnes de volume par leur position
+            // Vol1. pour les heures enseignant est typiquement en position 29-30 (colonne AC)
+            // Vol2. pour les heures enseignant est typiquement en position 30-31 (colonne AD)
+            if (header === 'Vol1.' && index > 25) { // Position tardive = heures enseignant
+              volumeMapping[index.toString()] = 'vol1_hours';
+            } else if (header === 'Vol2.' && index > 25) { // Position tardive = heures enseignant
+              volumeMapping[index.toString()] = 'vol2_hours';
+            }
+          });
 
           // Créer un mapping des indices
           const columnIndices: { [key: string]: number } = {};
@@ -169,12 +182,13 @@ export const AttributionImportDialog: React.FC<{
 
             const attribution: Partial<AttributionData> = {};
             
+            // Traiter les colonnes mappées normalement
             Object.keys(columnIndices).forEach(key => {
               const index = columnIndices[key];
               const value = row[index];
               
-              if (key === 'vol1_2025' || key === 'vol2' || key === 'coef1' || key === 'coef2' || 
-                  key === 'vol1' || key === 'vol2_attrib') {
+              if (key === 'vol1_total' || key === 'vol2_total' || key === 'vol1_old' || key === 'vol2_old' || 
+                  key === 'coef1' || key === 'coef2') {
                 // Gérer les valeurs #VALEUR! en les convertissant en 0
                 if (value === '#VALEUR!' || value === '#VALUE!' || !value) {
                   (attribution as any)[key] = 0;
@@ -183,6 +197,19 @@ export const AttributionImportDialog: React.FC<{
                 }
               } else {
                 (attribution as any)[key] = value?.toString() || '';
+              }
+            });
+
+            // Traiter spécialement les colonnes de volume enseignant (Vol1. et Vol2. en position tardive)
+            Object.keys(volumeMapping).forEach(indexStr => {
+              const index = parseInt(indexStr);
+              const key = volumeMapping[indexStr];
+              const value = row[index];
+              
+              if (value === '#VALEUR!' || value === '#VALUE!' || !value) {
+                (attribution as any)[key] = 0;
+              } else {
+                (attribution as any)[key] = parseFloat(value) || 0;
               }
             });
 
@@ -258,8 +285,10 @@ export const AttributionImportDialog: React.FC<{
               .from('courses')
               .update({
                 title: firstAttribution.intit_complet || firstAttribution.intitule_abrege,
-                volume_total_vol1: firstAttribution.vol1_2025 || 0,
-                volume_total_vol2: firstAttribution.vol2 || 0,
+                volume_total_vol1: firstAttribution.vol1_total || firstAttribution.vol1_old || 0,
+                volume_total_vol2: firstAttribution.vol2_total || firstAttribution.vol2_old || 0,
+                vol1_total: firstAttribution.vol1_total || firstAttribution.vol1_old || 0,
+                vol2_total: firstAttribution.vol2_total || firstAttribution.vol2_old || 0,
                 faculty: firstAttribution.dpt_charge,
                 subcategory: firstAttribution.type,
                 vacant: firstAttribution.etat_vac === 'Vacant',
@@ -278,8 +307,10 @@ export const AttributionImportDialog: React.FC<{
               .insert({
                 code: courseCode,
                 title: firstAttribution.intit_complet || firstAttribution.intitule_abrege,
-                volume_total_vol1: firstAttribution.vol1_2025 || 0,
-                volume_total_vol2: firstAttribution.vol2 || 0,
+                volume_total_vol1: firstAttribution.vol1_total || firstAttribution.vol1_old || 0,
+                volume_total_vol2: firstAttribution.vol2_total || firstAttribution.vol2_old || 0,
+                vol1_total: firstAttribution.vol1_total || firstAttribution.vol1_old || 0,
+                vol2_total: firstAttribution.vol2_total || firstAttribution.vol2_old || 0,
                 faculty: firstAttribution.dpt_charge,
                 subcategory: firstAttribution.type,
                 vacant: firstAttribution.etat_vac === 'Vacant',
@@ -343,15 +374,15 @@ export const AttributionImportDialog: React.FC<{
             const attributionToInsert = {
               course_id: courseId,
               teacher_id: teacherId,
-              vol1_hours: attribution.vol1 || 0,
-              vol2_hours: attribution.vol2_attrib || 0,
+              vol1_hours: attribution.vol1_hours || 0,
+              vol2_hours: attribution.vol2_hours || 0,
               assignment_type: attribution.fonction || 'standard',
               notes: [
                 attribution.remarque,
                 attribution.rem_spec,
                 attribution.remarque_candidature
               ].filter(Boolean).join(' | ') || null,
-              status: 'active',
+              status: attribution.candidature === 'Non retenu' ? 'rejected' : 'active',
               is_coordinator: attribution.fonction === 'Cotitulaire' || attribution.fonction === 'Coordinateur',
               candidature_status: attribution.candidature || null,
               faculty: attribution.dpt_charge || null

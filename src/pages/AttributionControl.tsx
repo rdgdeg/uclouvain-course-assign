@@ -4,6 +4,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { 
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 import { Badge } from "@/components/ui/badge";
 import { 
   ArrowLeft, 
@@ -17,7 +25,11 @@ import {
   Mail,
   Calendar,
   GraduationCap,
-  Plus
+  Plus,
+  ChevronDown,
+  ChevronRight,
+  Eye,
+  EyeOff
 } from "lucide-react";
 import { Layout } from "@/components/Layout";
 import { useCourseAttributions } from "@/hooks/useCourseAttributions";
@@ -29,6 +41,9 @@ const AttributionControl = () => {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [facultyFilter, setFacultyFilter] = useState<string>('all');
   const [showRequestForm, setShowRequestForm] = useState(false);
+  const [expandedCourses, setExpandedCourses] = useState<Set<number>>(new Set());
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
   
   const {
     courses,
@@ -50,6 +65,30 @@ const AttributionControl = () => {
     
     return matchesSearch && matchesStatus;
   });
+
+  // Pagination
+  const totalPages = Math.ceil(filteredCourses.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedCourses = filteredCourses.slice(startIndex, startIndex + itemsPerPage);
+
+  // Fonctions pour gérer l'expansion des cours
+  const toggleCourseExpansion = (courseId: number) => {
+    const newExpanded = new Set(expandedCourses);
+    if (newExpanded.has(courseId)) {
+      newExpanded.delete(courseId);
+    } else {
+      newExpanded.add(courseId);
+    }
+    setExpandedCourses(newExpanded);
+  };
+
+  const expandAll = () => {
+    setExpandedCourses(new Set(paginatedCourses.map(c => c.id)));
+  };
+
+  const collapseAll = () => {
+    setExpandedCourses(new Set());
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -219,333 +258,207 @@ const AttributionControl = () => {
           </CardContent>
         </Card>
 
+        {/* Actions de gestion des vues */}
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Button
+              onClick={expandAll}
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-2"
+            >
+              <Eye className="h-4 w-4" />
+              Tout déplier
+            </Button>
+            <Button
+              onClick={collapseAll}
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-2"
+            >
+              <EyeOff className="h-4 w-4" />
+              Tout replier
+            </Button>
+          </div>
+          <div className="text-sm text-muted-foreground">
+            Page {currentPage} sur {totalPages} • {filteredCourses.length} cours au total
+          </div>
+        </div>
+
         {/* Liste des cours avec attributions */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <BookOpen className="h-5 w-5" />
-              Cours et attributions ({filteredCourses.length})
+              Cours et attributions ({paginatedCourses.length} sur {filteredCourses.length})
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-6">
-              {filteredCourses.map((course) => (
-                <Card key={course.id} className="border-l-4 border-l-primary">
-                  <CardHeader className="pb-4">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2">
-                          <h2 className="text-xl font-bold text-primary">{course.code}</h2>
-                          <Badge className={`border ${getStatusColor(course.validation_status)}`}>
-                            {getStatusLabel(course.validation_status)}
-                          </Badge>
-                          {course.faculty && (
-                            <Badge variant="secondary">{course.faculty}</Badge>
-                          )}
-                        </div>
-                        <h3 className="text-lg font-medium text-gray-700 mb-3">{course.title}</h3>
-                        
-                        {/* Informations académiques */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                          <div className="space-y-1">
-                            <div className="font-medium text-gray-900">Année académique</div>
-                            <div className="text-gray-600">{course.academic_year || '2024-2025'}</div>
-                          </div>
-                          {course.faculty && (
-                            <div className="space-y-1">
-                              <div className="font-medium text-gray-900">Faculté</div>
-                              <div className="text-gray-600">{course.faculty}</div>
-                            </div>
-                          )}
-                          {course.subcategory && (
-                            <div className="space-y-1">
-                              <div className="font-medium text-gray-900">Sous-catégorie</div>
-                              <div className="text-gray-600">{course.subcategory}</div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                      
-                      <div className="flex flex-col gap-2">
-                        <Button 
-                          onClick={() => navigate('/demandes-modification', { 
-                            state: { courseId: course.id, courseCode: course.code, courseTitle: course.title }
-                          })}
-                          size="sm"
-                          className="flex items-center gap-2"
-                        >
-                          <Mail className="h-4 w-4" />
-                          Demander une modification
-                        </Button>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  
-                  <CardContent className="space-y-6">
-                    {/* Volumes horaires */}
-                    <div>
-                      <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                        <Clock className="h-4 w-4" />
-                        Volumes horaires
-                      </h4>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-gray-50 rounded-lg">
-                        <div className="text-center">
-                          <div className="text-2xl font-bold text-blue-600">
-                            {(course.vol1_total || 0) + (course.vol2_total || 0)}h
-                          </div>
-                          <div className="text-sm text-gray-600">Volume total</div>
-                          <div className="text-xs text-gray-500 mt-1">
-                            Assigné: {course.total_assigned_vol1 + course.total_assigned_vol2}h
-                          </div>
-                        </div>
-                        <div className="text-center">
-                          <div className="text-2xl font-bold text-green-600">{course.vol1_total || 0}h</div>
-                          <div className="text-sm text-gray-600">Volume 1</div>
-                          <div className="text-xs text-gray-500 mt-1">
-                            Assigné: {course.total_assigned_vol1}h
-                          </div>
-                        </div>
-                        <div className="text-center">
-                          <div className="text-2xl font-bold text-purple-600">{course.vol2_total || 0}h</div>
-                          <div className="text-sm text-gray-600">Volume 2</div>
-                          <div className="text-xs text-gray-500 mt-1">
-                            Assigné: {course.total_assigned_vol2}h
-                          </div>
-                        </div>
-                      </div>
-                      
-                      {course.has_volume_mismatch && (
-                        <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
-                          <div className="flex items-center gap-2 text-sm text-yellow-800">
-                            <AlertTriangle className="h-4 w-4" />
-                            <span className="font-medium">
-                              Incohérence détectée - Volumes assignés différents des volumes prévus
-                            </span>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Coordinateur */}
-                    {course.coordinator_name && (
-                      <div>
-                        <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                          <Users className="h-4 w-4" />
-                          Coordinateur
-                        </h4>
-                        <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <div className="font-medium text-blue-900">{course.coordinator_name}</div>
-                              <div className="text-sm text-blue-700">{course.coordinator_email}</div>
-                            </div>
-                            <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-300">
-                              Coordinateur
+              {paginatedCourses.map((course) => {
+                const isExpanded = expandedCourses.has(course.id);
+                
+                return (
+                  <Card key={course.id} className="border-l-4 border-l-primary">
+                    <CardHeader className="pb-4">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-2">
+                            <h2 className="text-xl font-bold text-primary">{course.code}</h2>
+                            <Badge className={`border ${getStatusColor(course.validation_status)}`}>
+                              {getStatusLabel(course.validation_status)}
                             </Badge>
+                            {course.faculty && (
+                              <Badge variant="secondary">{course.faculty}</Badge>
+                            )}
                           </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Équipe enseignante */}
-                    <div>
-                      <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                        <GraduationCap className="h-4 w-4" />
-                        Équipe enseignante ({course.attributions.length})
-                      </h4>
-                      
-                      {course.attributions.length > 0 ? (
-                        <div className="space-y-3">
-                          {course.attributions.map((attribution) => (
-                            <div key={attribution.id} className="p-4 border rounded-lg hover:bg-gray-50">
-                              <div className="flex items-start justify-between">
-                                <div className="flex-1 space-y-2">
-                                  {/* Nom et badges */}
-                                  <div className="flex items-center gap-3 flex-wrap">
-                                    <div className="font-medium text-gray-900 text-lg">{attribution.teacher_name}</div>
-                                    {attribution.is_coordinator && (
-                                      <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-300">
-                                        <Users className="h-3 w-3 mr-1" />
-                                        Coordinateur
-                                      </Badge>
-                                    )}
-                                    {attribution.assignment_type && (
-                                      <Badge variant="secondary" className="text-xs">
-                                        {attribution.assignment_type}
-                                      </Badge>
-                                    )}
-                                    {attribution.candidature_status && (
-                                      <Badge 
-                                        variant={attribution.candidature_status === 'Non retenu' ? 'destructive' : 'default'}
-                                        className="text-xs"
-                                      >
-                                        {attribution.candidature_status}
-                                      </Badge>
-                                    )}
-                                  </div>
-
-                                  {/* Email */}
-                                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                                    <Mail className="h-4 w-4" />
-                                    <span>{attribution.teacher_email}</span>
-                                  </div>
-
-                                  {/* Informations détaillées */}
-                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-                                    {attribution.teacher_status && (
-                                      <div>
-                                        <span className="font-medium text-gray-700">Statut enseignant:</span>
-                                        <span className="ml-2 text-gray-600">{attribution.teacher_status}</span>
-                                      </div>
-                                    )}
-                                    {attribution.status && (
-                                      <div>
-                                        <span className="font-medium text-gray-700">Statut attribution:</span>
-                                        <span className="ml-2 text-gray-600">{attribution.status}</span>
-                                      </div>
-                                    )}
-                                    {attribution.faculty && (
-                                      <div>
-                                        <span className="font-medium text-gray-700">Faculté:</span>
-                                        <span className="ml-2 text-gray-600">{attribution.faculty}</span>
-                                      </div>
-                                    )}
-                                  </div>
-
-                                  {/* Notes si disponibles */}
-                                  {attribution.notes && (
-                                    <div className="mt-2 p-2 bg-gray-50 rounded text-sm">
-                                      <span className="font-medium text-gray-700">Notes:</span>
-                                      <p className="text-gray-600 mt-1">{attribution.notes}</p>
-                                    </div>
-                                  )}
-                                </div>
-
-                                {/* Volumes d'heures */}
-                                <div className="text-right ml-4">
-                                  <div className="text-lg font-bold text-primary mb-1">
-                                    {attribution.vol1_hours + attribution.vol2_hours}h
-                                  </div>
-                                  <div className="text-xs text-gray-600 space-y-1">
-                                    <div className="flex items-center justify-end gap-1">
-                                      <span className="w-8 h-2 bg-green-200 rounded-sm"></span>
-                                      <span>Vol1: {attribution.vol1_hours}h</span>
-                                    </div>
-                                    <div className="flex items-center justify-end gap-1">
-                                      <span className="w-8 h-2 bg-purple-200 rounded-sm"></span>
-                                      <span>Vol2: {attribution.vol2_hours}h</span>
-                                    </div>
-                                  </div>
-                                  
-                                  {/* Pourcentage du total si pertinent */}
-                                  {(course.vol1_total + course.vol2_total) > 0 && (
-                                    <div className="text-xs text-gray-500 mt-2">
-                                      {(((attribution.vol1_hours + attribution.vol2_hours) / (course.vol1_total + course.vol2_total)) * 100).toFixed(1)}% du cours
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          ))}
+                          <h3 className="text-lg font-medium text-gray-700 mb-3">{course.title}</h3>
                           
-                          {/* Résumé des attributions amélioré */}
-                          <div className="mt-4 p-4 bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-lg">
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                              <div className="text-center">
-                                <div className="font-bold text-blue-600">{course.attributions.length}</div>
-                                <div className="text-gray-600">Enseignant(s)</div>
+                          {/* Vue compacte - informations principales */}
+                          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
+                            <div className="space-y-1">
+                              <div className="font-medium text-gray-900">Volume Total</div>
+                              <div className="text-2xl font-bold text-blue-600">
+                                {(course.vol1_total || 0) + (course.vol2_total || 0)}h
                               </div>
-                              <div className="text-center">
-                                <div className="font-bold text-green-600">{course.total_assigned_vol1}h</div>
-                                <div className="text-gray-600">Vol1 assigné</div>
-                              </div>
-                              <div className="text-center">
-                                <div className="font-bold text-purple-600">{course.total_assigned_vol2}h</div>
-                                <div className="text-gray-600">Vol2 assigné</div>
+                              <div className="text-xs text-gray-500">
+                                Assigné: {course.total_assigned_vol1 + course.total_assigned_vol2}h
                               </div>
                             </div>
                             
-                            {/* Répartition par type d'enseignant */}
-                            {course.attributions.some(a => a.assignment_type) && (
-                              <div className="mt-3 pt-3 border-t border-blue-200">
-                                <div className="text-xs text-gray-600">
-                                  <strong>Répartition:</strong>
-                                  {[...new Set(course.attributions.map(a => a.assignment_type).filter(Boolean))].map(type => {
-                                    const count = course.attributions.filter(a => a.assignment_type === type).length;
-                                    return ` ${type} (${count})`;
-                                  }).join(' •')}
-                                </div>
+                            <div className="space-y-1">
+                              <div className="font-medium text-gray-900">Volume 1</div>
+                              <div className="text-xl font-bold text-green-600">{course.vol1_total || 0}h</div>
+                              <div className="text-xs text-gray-500">
+                                Assigné: {course.total_assigned_vol1}h
                               </div>
-                            )}
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="space-y-4">
-                          <div className="p-6 border-2 border-dashed border-gray-300 rounded-lg text-center">
-                            <Users className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                            <p className="text-gray-600 font-medium">Aucune attribution définie</p>
-                            <p className="text-sm text-gray-500 mb-3">Ce cours n'a pas encore d'équipe enseignante assignée</p>
-                            <p className="text-xs text-gray-400">
-                              Les données d'attribution du fichier Excel doivent être importées via l'interface d'administration
-                            </p>
-                          </div>
-                          
-                          {/* Affichage des volumes attendus même sans attribution */}
-                          <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                            <div className="flex items-center gap-2 mb-2">
-                              <AlertTriangle className="h-4 w-4 text-yellow-600" />
-                              <span className="font-medium text-yellow-800">Volumes à attribuer</span>
                             </div>
-                            <div className="grid grid-cols-2 gap-4 text-sm">
-                              <div>
-                                <span className="font-medium">Volume 1:</span>
-                                <span className="ml-2 text-yellow-700">{course.vol1_total || 0}h à attribuer</span>
+                            
+                            <div className="space-y-1">
+                              <div className="font-medium text-gray-900">Volume 2</div>
+                              <div className="text-xl font-bold text-purple-600">{course.vol2_total || 0}h</div>
+                              <div className="text-xs text-gray-500">
+                                Assigné: {course.total_assigned_vol2}h
                               </div>
-                              <div>
-                                <span className="font-medium">Volume 2:</span>
-                                <span className="ml-2 text-yellow-700">{course.vol2_total || 0}h à attribuer</span>
+                            </div>
+                            
+                            <div className="space-y-1">
+                              <div className="font-medium text-gray-900">Équipe</div>
+                              <div className="text-xl font-bold text-orange-600">{course.attributions.length}</div>
+                              <div className="text-xs text-gray-500">
+                                {course.coordinator_name ? `Coord: ${course.coordinator_name}` : 'Pas de coordinateur'}
                               </div>
                             </div>
                           </div>
-                        </div>
-                      )}
-                    </div>
 
-                    {/* Informations supplémentaires du cours */}
-                    <div className="pt-4 border-t border-gray-200">
-                      <h4 className="font-semibold text-gray-900 mb-3">Informations détaillées</h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                        <div>
-                          <span className="font-medium text-gray-700">Code du cours:</span>
-                          <span className="ml-2 text-gray-600">{course.code}</span>
+                          {/* Indicateur d'incohérence en vue compacte */}
+                          {course.has_volume_mismatch && (
+                            <div className="mt-3 p-2 bg-yellow-50 border border-yellow-200 rounded-md">
+                              <div className="flex items-center gap-2 text-sm text-yellow-800">
+                                <AlertTriangle className="h-4 w-4" />
+                                <span className="font-medium">Incohérence volumes détectée</span>
+                              </div>
+                            </div>
+                          )}
                         </div>
-                        <div>
-                          <span className="font-medium text-gray-700">Statut:</span>
-                          <span className="ml-2 text-gray-600">
-                            {course.vacant ? 'Poste vacant' : 'Poste pourvu'}
-                          </span>
+                        
+                        <div className="flex flex-col gap-2">
+                          <Button 
+                            onClick={() => navigate('/demandes-modification', { 
+                              state: { courseId: course.id, courseCode: course.code, courseTitle: course.title }
+                            })}
+                            size="sm"
+                            className="flex items-center gap-2"
+                          >
+                            <Mail className="h-4 w-4" />
+                            Demander une modification
+                          </Button>
+                          
+                          <Button
+                            onClick={() => toggleCourseExpansion(course.id)}
+                            variant="outline"
+                            size="sm"
+                            className="flex items-center gap-2"
+                          >
+                            {isExpanded ? (
+                              <>
+                                <ChevronDown className="h-4 w-4" />
+                                Masquer détails
+                              </>
+                            ) : (
+                              <>
+                                <ChevronRight className="h-4 w-4" />
+                                Voir détails
+                              </>
+                            )}
+                          </Button>
                         </div>
-                        {course.start_date && (
-                          <div>
-                            <span className="font-medium text-gray-700">Date de début:</span>
-                            <span className="ml-2 text-gray-600">
-                              {new Date(course.start_date).toLocaleDateString()}
-                            </span>
-                          </div>
-                        )}
-                        {course.duration_weeks && (
-                          <div>
-                            <span className="font-medium text-gray-700">Durée:</span>
-                            <span className="ml-2 text-gray-600">{course.duration_weeks} semaines</span>
-                          </div>
-                        )}
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                    </CardHeader>
+                    
+                    {/* Détails étendus - Affiché seulement si étendu */}
+                    {isExpanded && (
+                      <CardContent className="space-y-6">
+                        {/* Équipe enseignante détaillée */}
+                        <div>
+                          <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                            <GraduationCap className="h-4 w-4" />
+                            Équipe enseignante ({course.attributions.length})
+                          </h4>
+                          
+                          {course.attributions.length > 0 ? (
+                            <div className="space-y-3">
+                              {course.attributions.map((attribution) => (
+                                <div key={attribution.id} className="p-4 border rounded-lg hover:bg-gray-50">
+                                  <div className="flex items-start justify-between">
+                                    <div className="flex-1 space-y-2">
+                                      <div className="flex items-center gap-3 flex-wrap">
+                                        <div className="font-medium text-gray-900 text-lg">{attribution.teacher_name}</div>
+                                        {attribution.is_coordinator && (
+                                          <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-300">
+                                            <Users className="h-3 w-3 mr-1" />
+                                            Coordinateur
+                                          </Badge>
+                                        )}
+                                        {attribution.assignment_type && (
+                                          <Badge variant="secondary" className="text-xs">
+                                            {attribution.assignment_type}
+                                          </Badge>
+                                        )}
+                                      </div>
+                                      <div className="flex items-center gap-2 text-sm text-gray-600">
+                                        <Mail className="h-4 w-4" />
+                                        <span>{attribution.teacher_email}</span>
+                                      </div>
+                                    </div>
+                                    <div className="text-right ml-4">
+                                      <div className="text-lg font-bold text-primary mb-1">
+                                        {attribution.vol1_hours + attribution.vol2_hours}h
+                                      </div>
+                                      <div className="text-xs text-gray-600 space-y-1">
+                                        <div>Vol1: {attribution.vol1_hours}h</div>
+                                        <div>Vol2: {attribution.vol2_hours}h</div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="p-6 border-2 border-dashed border-gray-300 rounded-lg text-center">
+                              <Users className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                              <p className="text-gray-600 font-medium">Aucune attribution définie</p>
+                              <p className="text-sm text-gray-500">Ce cours n'a pas encore d'équipe enseignante assignée</p>
+                            </div>
+                          )}
+                        </div>
+                      </CardContent>
+                    )}
+                  </Card>
+                );
+              })}
               
-              {filteredCourses.length === 0 && (
+              {paginatedCourses.length === 0 && (
                 <div className="text-center py-12 text-gray-500">
                   <BookOpen className="h-12 w-12 mx-auto mb-4 opacity-50" />
                   <p className="text-lg font-medium mb-2">Aucun cours trouvé</p>
@@ -553,6 +466,43 @@ const AttributionControl = () => {
                 </div>
               )}
             </div>
+            
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="mt-8 flex justify-center">
+                <Pagination>
+                  <PaginationContent>
+                    <PaginationItem>
+                      <PaginationPrevious 
+                        onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                        disabled={currentPage === 1}
+                        className={currentPage === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                      />
+                    </PaginationItem>
+                    
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                      <PaginationItem key={page}>
+                        <PaginationLink
+                          onClick={() => setCurrentPage(page)}
+                          isActive={currentPage === page}
+                          className="cursor-pointer"
+                        >
+                          {page}
+                        </PaginationLink>
+                      </PaginationItem>
+                    ))}
+                    
+                    <PaginationItem>
+                      <PaginationNext 
+                        onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                        disabled={currentPage === totalPages}
+                        className={currentPage === totalPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                      />
+                    </PaginationItem>
+                  </PaginationContent>
+                </Pagination>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

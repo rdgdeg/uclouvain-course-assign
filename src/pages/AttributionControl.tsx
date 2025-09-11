@@ -20,7 +20,7 @@ import {
   Plus
 } from "lucide-react";
 import { Layout } from "@/components/Layout";
-import { useAttributionManagement } from "@/hooks/useAttributionManagement";
+import { useCourseAttributions } from "@/hooks/useCourseAttributions";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 
 const AttributionControl = () => {
@@ -31,23 +31,19 @@ const AttributionControl = () => {
   const [showRequestForm, setShowRequestForm] = useState(false);
   
   const {
-    coordinators,
-    validations,
-    attributions,
+    courses,
     loading,
     error,
-    getAttributionSummary,
     getStats
-  } = useAttributionManagement();
+  } = useCourseAttributions();
 
   const stats = getStats();
-  const summary = getAttributionSummary();
 
   // Filtrer les cours selon les critères
-  const filteredSummary = summary.filter(course => {
+  const filteredCourses = courses.filter(course => {
     const matchesSearch = 
-      course.course_title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      course.course_code.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      course.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      course.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (course.coordinator_name && course.coordinator_name.toLowerCase().includes(searchQuery.toLowerCase()));
     
     const matchesStatus = statusFilter === 'all' || course.validation_status === statusFilter;
@@ -228,24 +224,27 @@ const AttributionControl = () => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <BookOpen className="h-5 w-5" />
-              Cours et attributions ({filteredSummary.length})
+              Cours et attributions ({filteredCourses.length})
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {filteredSummary.map((course) => (
+              {filteredCourses.map((course) => (
                 <div
-                  key={course.course_id}
+                  key={course.id}
                   className="border rounded-lg p-6 hover:bg-gray-50 transition-colors"
                 >
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-3">
-                        <h3 className="text-lg font-semibold">{course.course_title}</h3>
-                        <Badge variant="outline" className="text-xs">{course.course_code}</Badge>
+                        <h3 className="text-lg font-semibold">{course.title}</h3>
+                        <Badge variant="outline" className="text-xs">{course.code}</Badge>
                         <Badge className={`border ${getStatusColor(course.validation_status)}`}>
                           {getStatusLabel(course.validation_status)}
                         </Badge>
+                        {course.faculty && (
+                          <Badge variant="secondary">{course.faculty}</Badge>
+                        )}
                       </div>
                       
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600">
@@ -253,15 +252,15 @@ const AttributionControl = () => {
                           <div className="flex items-center gap-2">
                             <Clock className="h-4 w-4" />
                             <span>
-                              <strong>Vol.1:</strong> {course.total_vol1_attributed}h 
-                              {course.total_vol1_expected > 0 && ` / ${course.total_vol1_expected}h`}
+                              <strong>Vol.1:</strong> {course.total_assigned_vol1}h 
+                              {course.vol1_total > 0 && ` / ${course.vol1_total}h`}
                             </span>
                           </div>
                           <div className="flex items-center gap-2">
                             <Clock className="h-4 w-4" />
                             <span>
-                              <strong>Vol.2:</strong> {course.total_vol2_attributed}h 
-                              {course.total_vol2_expected > 0 && ` / ${course.total_vol2_expected}h`}
+                              <strong>Vol.2:</strong> {course.total_assigned_vol2}h 
+                              {course.vol2_total > 0 && ` / ${course.vol2_total}h`}
                             </span>
                           </div>
                         </div>
@@ -280,18 +279,31 @@ const AttributionControl = () => {
                         )}
                       </div>
                       
-                      {course.last_sent && (
-                        <div className="mt-3 flex items-center gap-2 text-xs text-gray-500">
-                          <Calendar className="h-3 w-3" />
-                          <span>Dernière validation envoyée : {new Date(course.last_sent).toLocaleDateString()}</span>
+                      {/* Afficher les attributions si disponibles */}
+                      {course.attributions.length > 0 && (
+                        <div className="mt-4">
+                          <h4 className="text-sm font-medium mb-2">Équipe enseignante :</h4>
+                          <div className="space-y-1">
+                            {course.attributions.map((attribution) => (
+                              <div key={attribution.id} className="text-xs text-gray-600 flex items-center gap-2">
+                                <Users className="h-3 w-3" />
+                                <span>{attribution.teacher_name}</span>
+                                {attribution.is_coordinator && (
+                                  <Badge variant="outline" className="text-xs">Coord.</Badge>
+                                )}
+                                <span className="ml-auto">
+                                  Vol1: {attribution.vol1_hours}h, Vol2: {attribution.vol2_hours}h
+                                </span>
+                              </div>
+                            ))}
+                          </div>
                         </div>
                       )}
                     </div>
                   </div>
                   
                   {/* Indicateurs visuels pour les anomalies */}
-                  {(course.total_vol1_attributed !== course.total_vol1_expected || 
-                    course.total_vol2_attributed !== course.total_vol2_expected) && (
+                  {course.has_volume_mismatch && (
                     <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
                       <div className="flex items-center gap-2 text-sm text-yellow-800">
                         <AlertTriangle className="h-4 w-4" />
@@ -302,7 +314,7 @@ const AttributionControl = () => {
                 </div>
               ))}
               
-              {filteredSummary.length === 0 && (
+              {filteredCourses.length === 0 && (
                 <div className="text-center py-12 text-gray-500">
                   <BookOpen className="h-12 w-12 mx-auto mb-4 opacity-50" />
                   <p className="text-lg font-medium mb-2">Aucun cours trouvé</p>

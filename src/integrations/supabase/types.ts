@@ -240,6 +240,53 @@ export type Database = {
           },
         ]
       }
+      course_corrections: {
+        Row: {
+          admin_notes: string | null
+          correction_type: string
+          course_id: number | null
+          created_at: string
+          description: string
+          id: string
+          requester_email: string
+          requester_name: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          admin_notes?: string | null
+          correction_type: string
+          course_id?: number | null
+          created_at?: string
+          description: string
+          id?: string
+          requester_email: string
+          requester_name: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          admin_notes?: string | null
+          correction_type?: string
+          course_id?: number | null
+          created_at?: string
+          description?: string
+          id?: string
+          requester_email?: string
+          requester_name?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "course_corrections_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       courses: {
         Row: {
           academic_year: string | null
@@ -253,6 +300,8 @@ export type Database = {
           title: string
           updated_at: string | null
           vacant: boolean | null
+          vol1_total: number | null
+          vol2_total: number | null
           volume_total_vol1: number | null
           volume_total_vol2: number | null
         }
@@ -268,6 +317,8 @@ export type Database = {
           title: string
           updated_at?: string | null
           vacant?: boolean | null
+          vol1_total?: number | null
+          vol2_total?: number | null
           volume_total_vol1?: number | null
           volume_total_vol2?: number | null
         }
@@ -283,6 +334,8 @@ export type Database = {
           title?: string
           updated_at?: string | null
           vacant?: boolean | null
+          vol1_total?: number | null
+          vol2_total?: number | null
           volume_total_vol1?: number | null
           volume_total_vol2?: number | null
         }
@@ -291,9 +344,12 @@ export type Database = {
       hour_attributions: {
         Row: {
           assignment_type: string
+          candidature_status: string | null
           course_id: number | null
           created_at: string | null
+          faculty: string | null
           id: string
+          is_coordinator: boolean | null
           notes: string | null
           status: string | null
           teacher_id: number | null
@@ -303,9 +359,12 @@ export type Database = {
         }
         Insert: {
           assignment_type: string
+          candidature_status?: string | null
           course_id?: number | null
           created_at?: string | null
+          faculty?: string | null
           id?: string
+          is_coordinator?: boolean | null
           notes?: string | null
           status?: string | null
           teacher_id?: number | null
@@ -315,9 +374,12 @@ export type Database = {
         }
         Update: {
           assignment_type?: string
+          candidature_status?: string | null
           course_id?: number | null
           created_at?: string | null
+          faculty?: string | null
           id?: string
+          is_coordinator?: boolean | null
           notes?: string | null
           status?: string | null
           teacher_id?: number | null
@@ -341,6 +403,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      import_logs: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          details: Json | null
+          errors_count: number | null
+          id: string
+          import_type: string
+          processed_rows: number | null
+          status: string
+          total_rows: number | null
+          warnings_count: number | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          details?: Json | null
+          errors_count?: number | null
+          id?: string
+          import_type: string
+          processed_rows?: number | null
+          status: string
+          total_rows?: number | null
+          warnings_count?: number | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          details?: Json | null
+          errors_count?: number | null
+          id?: string
+          import_type?: string
+          processed_rows?: number | null
+          status?: string
+          total_rows?: number | null
+          warnings_count?: number | null
+        }
+        Relationships: []
       }
       import_reports: {
         Row: {

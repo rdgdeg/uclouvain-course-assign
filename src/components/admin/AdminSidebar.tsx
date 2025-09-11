@@ -11,7 +11,8 @@ import {
   Bell,
   Sun,
   Moon,
-  Command
+  Command,
+  Upload
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -106,6 +107,12 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
       icon: FileText,
       description: 'Modifications en attente',
       badge: stats.requests
+    },
+    {
+      id: 'attribution-import',
+      label: 'Import Attributions',
+      icon: Upload,
+      description: 'Import fichier Excel'
     },
     {
       id: 'settings',

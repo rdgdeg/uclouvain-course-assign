@@ -1,275 +1,378 @@
-import React, { useState } from 'react';
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogDescription, 
-  DialogHeader, 
-  DialogTitle, 
-  DialogTrigger 
-} from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Upload, FileSpreadsheet, CheckCircle, AlertTriangle, Users } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
-import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
+import React, { useState } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { useToast } from "@/hooks/use-toast";
+import { Upload, AlertCircle, CheckCircle, Download } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import * as XLSX from 'xlsx';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-interface AttributionImportDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onSuccess?: () => void;
-}
-
-interface ImportedAttribution {
-  course_code: string;
-  teacher_name: string;
-  teacher_email: string;
-  assignment_type: 'coordinator' | 'assistant' | 'lecturer' | 'tp_supervisor';
-  vol1_hours: number;
-  vol2_hours: number;
-  notes?: string;
+interface AttributionData {
+  cours: string;
+  intitule_abrege: string;
+  intit_complet: string;
+  inactif: string;
+  etat_vac: string;
+  cours_en_propo: string;
+  vol1_2025: number;
+  vol2: number;
+  coef1: number;
+  coef2: number;
+  periodicite: string;
+  dpt_charge: string;
+  dpt_attribution: string;
+  type: string;
+  d: string;
+  p: string;
+  c: string;
+  except_ord: string;
+  nom: string;
+  prenom: string;
+  enseignant: string;
+  email_ucl: string;
+  candidature: string;
+  fonction: string;
+  supplee: string;
+  debut: string;
+  duree: string;
+  cause_vac: string;
+  cause_decision: string;
+  vol1: number;
+  vol2_attrib: number;
+  mode_paiement_vol1: string;
+  mode_paiement_vol2: string;
+  poste: string;
+  remarque: string;
+  rem_spec: string;
+  procedure_attribution: string;
+  remarque_candidature: string;
+  id_equipe: string;
+  candidature_en_ligne: string;
 }
 
 interface ImportResult {
   success: number;
   errors: string[];
   warnings: string[];
-  imported: ImportedAttribution[];
+  courses_created: number;
+  teachers_created: number;
+  attributions_created: number;
 }
 
-export const AttributionImportDialog: React.FC<AttributionImportDialogProps> = ({
-  open,
-  onOpenChange,
-  onSuccess
-}) => {
+export const AttributionImportDialog: React.FC<{
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSuccess?: () => void;
+}> = ({ open, onOpenChange, onSuccess }) => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const { toast } = useToast();
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file && file.type === 'text/csv') {
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      // Vérifier le type de fichier
+      if (!file.name.endsWith('.xlsx') && !file.name.endsWith('.xls') && !file.name.endsWith('.csv')) {
+        toast({
+          title: "Format de fichier non supporté",
+          description: "Veuillez sélectionner un fichier Excel (.xlsx, .xls) ou CSV.",
+          variant: "destructive"
+        });
+        return;
+      }
       setSelectedFile(file);
       setImportResult(null);
-    } else {
-      toast({
-        title: "Format invalide",
-        description: "Veuillez sélectionner un fichier CSV.",
-        variant: "destructive",
-      });
     }
   };
 
-  const parseCSV = (csvContent: string): ImportedAttribution[] => {
-    const lines = csvContent.split('\n').filter(line => line.trim());
-    if (lines.length < 2) {
-      throw new Error('Le fichier CSV doit contenir au moins un en-tête et une ligne de données');
-    }
+  const parseExcelFile = async (file: File): Promise<AttributionData[]> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const data = new Uint8Array(e.target?.result as ArrayBuffer);
+          const workbook = XLSX.read(data, { type: 'array' });
+          const firstSheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[firstSheetName];
+          const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+          
+          if (jsonData.length < 2) {
+            reject(new Error('Le fichier doit contenir au moins une ligne d\'en-tête et une ligne de données'));
+            return;
+          }
 
-    const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
-    const attributions: ImportedAttribution[] = [];
+          const headers = (jsonData[0] as string[]).map(h => h?.toString().trim() || '');
+          const attributions: AttributionData[] = [];
 
-    // Mapping des colonnes
-    const columnMapping: { [key: string]: string } = {
-      'code cours': 'course_code',
-      'cours': 'course_code',
-      'code': 'course_code',
-      'nom enseignant': 'teacher_name',
-      'enseignant': 'teacher_name',
-      'nom': 'teacher_name',
-      'email': 'teacher_email',
-      'email enseignant': 'teacher_email',
-      'type': 'assignment_type',
-      'type attribution': 'assignment_type',
-      'volume 1': 'vol1_hours',
-      'vol1': 'vol1_hours',
-      'volume 2': 'vol2_hours',
-      'vol2': 'vol2_hours',
-      'notes': 'notes',
-      'remarques': 'notes'
-    };
+          // Mapping des colonnes
+          const columnMapping: { [key: string]: keyof AttributionData } = {
+            'Cours': 'cours',
+            'Intitulé abrégé': 'intitule_abrege',
+            'Intit.Complet': 'intit_complet',
+            'Inactif': 'inactif',
+            'Etat vac.': 'etat_vac',
+            'Cours en propo.': 'cours_en_propo',
+            'Vol1. 2025': 'vol1_2025',
+            'Vol2.': 'vol2',
+            'Coef1': 'coef1',
+            'Coef2': 'coef2',
+            'Périodicité': 'periodicite',
+            'Dpt Charge': 'dpt_charge',
+            'Dpt Attribution': 'dpt_attribution',
+            'Type': 'type',
+            'D': 'd',
+            'P': 'p',
+            'C': 'c',
+            'Except./Ord.': 'except_ord',
+            'Nom': 'nom',
+            'Prénom': 'prenom',
+            'Enseignant': 'enseignant',
+            'Email UCL': 'email_ucl',
+            'Candidature': 'candidature',
+            'Fonction': 'fonction',
+            'Supplée': 'supplee',
+            'Début': 'debut',
+            'Durée': 'duree',
+            'Cause de vac.': 'cause_vac',
+            'Cause décision': 'cause_decision',
+            'Vol1.': 'vol1',
+            'Vol2': 'vol2_attrib',
+            'Mode paiement vol1': 'mode_paiement_vol1',
+            'Mode paiement vol2': 'mode_paiement_vol2',
+            'Poste': 'poste',
+            'Remarque': 'remarque',
+            'Rem. spec.': 'rem_spec',
+            'Procédure d\'attribution': 'procedure_attribution',
+            'Remarque candidature': 'remarque_candidature',
+            'Id équipe': 'id_equipe',
+            'Candidature en ligne': 'candidature_en_ligne'
+          };
 
-    const columnIndices: { [key: string]: number } = {};
-    headers.forEach((header, index) => {
-      const mappedKey = columnMapping[header];
-      if (mappedKey) {
-        columnIndices[mappedKey] = index;
-      }
-    });
+          // Créer un mapping des indices
+          const columnIndices: { [key: string]: number } = {};
+          headers.forEach((header, index) => {
+            const mappedKey = columnMapping[header];
+            if (mappedKey) {
+              columnIndices[mappedKey] = index;
+            }
+          });
 
-    // Vérifier les colonnes obligatoires
-    const requiredColumns = ['course_code', 'teacher_name', 'teacher_email', 'assignment_type', 'vol1_hours', 'vol2_hours'];
-    const missingColumns = requiredColumns.filter(col => !(col in columnIndices));
-    
-    if (missingColumns.length > 0) {
-      throw new Error(`Colonnes manquantes : ${missingColumns.join(', ')}`);
-    }
+          // Parser les données
+          for (let i = 1; i < jsonData.length; i++) {
+            const row = jsonData[i] as any[];
+            if (!row || row.length === 0) continue;
 
-    // Parser chaque ligne
-    for (let i = 1; i < lines.length; i++) {
-      const values = lines[i].split(',').map(v => v.trim().replace(/^"|"$/g, ''));
-      
-      if (values.length < headers.length) {
-        console.warn(`Ligne ${i + 1} ignorée : nombre de colonnes incorrect`);
-        continue;
-      }
+            const attribution: Partial<AttributionData> = {};
+            
+            Object.keys(columnIndices).forEach(key => {
+              const index = columnIndices[key];
+              const value = row[index];
+              
+              if (key === 'vol1_2025' || key === 'vol2' || key === 'coef1' || key === 'coef2' || 
+                  key === 'vol1' || key === 'vol2_attrib') {
+                (attribution as any)[key] = parseFloat(value) || 0;
+              } else {
+                (attribution as any)[key] = value?.toString() || '';
+              }
+            });
 
-      const attribution: ImportedAttribution = {
-        course_code: values[columnIndices.course_code] || '',
-        teacher_name: values[columnIndices.teacher_name] || '',
-        teacher_email: values[columnIndices.teacher_email] || '',
-        assignment_type: values[columnIndices.assignment_type] as any || 'lecturer',
-        vol1_hours: parseFloat(values[columnIndices.vol1_hours]) || 0,
-        vol2_hours: parseFloat(values[columnIndices.vol2_hours]) || 0,
-        notes: values[columnIndices.notes] || undefined
+            if (attribution.cours && attribution.cours.trim()) {
+              attributions.push(attribution as AttributionData);
+            }
+          }
+
+          resolve(attributions);
+        } catch (error) {
+          reject(error);
+        }
       };
-
-      // Validation basique
-      if (attribution.course_code && attribution.teacher_name && attribution.teacher_email) {
-        attributions.push(attribution);
-      }
-    }
-
-    return attributions;
+      reader.onerror = () => reject(new Error('Erreur lors de la lecture du fichier'));
+      reader.readAsArrayBuffer(file);
+    });
   };
 
   const handleImport = async () => {
-    if (!selectedFile) return;
+    if (!selectedFile) {
+      toast({ title: "Aucun fichier sélectionné", variant: "destructive" });
+      return;
+    }
 
     setImporting(true);
     const result: ImportResult = {
       success: 0,
       errors: [],
       warnings: [],
-      imported: []
+      courses_created: 0,
+      teachers_created: 0,
+      attributions_created: 0
     };
 
     try {
-      const csvContent = await selectedFile.text();
-      const attributions = parseCSV(csvContent);
+      // Parser le fichier Excel
+      const attributions = await parseExcelFile(selectedFile);
+      
+      if (attributions.length === 0) {
+        result.errors.push("Aucune donnée valide trouvée dans le fichier");
+        setImportResult(result);
+        return;
+      }
 
-      for (const attr of attributions) {
+      // Grouper par cours
+      const courseGroups = new Map<string, AttributionData[]>();
+      attributions.forEach(attr => {
+        const courseCode = attr.cours;
+        if (!courseGroups.has(courseCode)) {
+          courseGroups.set(courseCode, []);
+        }
+        courseGroups.get(courseCode)!.push(attr);
+      });
+
+      // Traiter chaque cours
+      for (const [courseCode, courseAttributions] of courseGroups) {
         try {
-          // Vérifier si le cours existe
-          const { data: courseData, error: courseError } = await supabase
+          const firstAttribution = courseAttributions[0];
+          
+          // 1. Créer/mettre à jour le cours
+          const { data: existingCourse } = await supabase
             .from('courses')
             .select('id')
-            .eq('code', attr.course_code)
+            .eq('code', courseCode)
             .single();
 
-          if (courseError || !courseData) {
-            result.errors.push(`Cours non trouvé : ${attr.course_code}`);
-            continue;
-          }
+          let courseId: number;
+          
+          if (existingCourse) {
+            courseId = existingCourse.id;
+            // Mettre à jour le cours existant
+            const { error: updateError } = await supabase
+              .from('courses')
+              .update({
+                title: firstAttribution.intit_complet || firstAttribution.intitule_abrege,
+                volume_total_vol1: firstAttribution.vol1_2025 || 0,
+                volume_total_vol2: firstAttribution.vol2 || 0,
+                faculty: firstAttribution.dpt_charge,
+                subcategory: firstAttribution.type,
+                vacant: firstAttribution.etat_vac === 'Vacant',
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', courseId);
 
-          // Vérifier si l'enseignant existe
-          let teacherId: number;
-          const { data: teacherData, error: teacherError } = await supabase
-            .from('teachers')
-            .select('id')
-            .eq('email', attr.teacher_email)
-            .single();
-
-          if (teacherError || !teacherData) {
-            // Créer l'enseignant s'il n'existe pas
-            const nameParts = attr.teacher_name.split(' ');
-            const firstName = nameParts[0] || '';
-            const lastName = nameParts.slice(1).join(' ') || '';
-
-            const { data: newTeacher, error: createError } = await supabase
-              .from('teachers')
+            if (updateError) {
+              result.errors.push(`Erreur mise à jour cours ${courseCode}: ${updateError.message}`);
+              continue;
+            }
+          } else {
+            // Créer un nouveau cours
+            const { data: newCourse, error: insertError } = await supabase
+              .from('courses')
               .insert({
-                first_name: firstName,
-                last_name: lastName,
-                email: attr.teacher_email
+                code: courseCode,
+                title: firstAttribution.intit_complet || firstAttribution.intitule_abrege,
+                volume_total_vol1: firstAttribution.vol1_2025 || 0,
+                volume_total_vol2: firstAttribution.vol2 || 0,
+                faculty: firstAttribution.dpt_charge,
+                subcategory: firstAttribution.type,
+                vacant: firstAttribution.etat_vac === 'Vacant',
+                academic_year: '2024-2025'
               })
               .select('id')
               .single();
 
-            if (createError || !newTeacher) {
-              result.errors.push(`Impossible de créer l'enseignant : ${attr.teacher_email}`);
+            if (insertError || !newCourse) {
+              result.errors.push(`Erreur création cours ${courseCode}: ${insertError?.message || 'Cours non créé'}`);
               continue;
             }
-
-            teacherId = newTeacher.id;
-            result.warnings.push(`Enseignant créé : ${attr.teacher_name}`);
-          } else {
-            teacherId = teacherData.id;
+            
+            courseId = newCourse.id;
+            result.courses_created++;
           }
 
-          // Créer l'attribution
-          const { error: attrError } = await supabase
-            .from('hour_attributions')
-            .upsert({
-              course_id: courseData.id,
-              teacher_id: teacherId,
-              assignment_type: attr.assignment_type,
-              vol1_hours: attr.vol1_hours,
-              vol2_hours: attr.vol2_hours,
-              notes: attr.notes
-            }, {
-              onConflict: 'course_id,teacher_id,assignment_type'
-            });
+          // 2. Traiter les enseignants et attributions
+          for (const attribution of courseAttributions) {
+            if (!attribution.nom || !attribution.prenom) continue;
 
-          if (attrError) {
-            result.errors.push(`Erreur attribution ${attr.course_code} - ${attr.teacher_name}: ${attrError.message}`);
-          } else {
-            result.success++;
-            result.imported.push(attr);
-          }
+            // Créer/mettre à jour l'enseignant
+            const { data: existingTeacher } = await supabase
+              .from('teachers')
+              .select('id')
+              .eq('email', attribution.email_ucl)
+              .single();
 
-          // Si c'est un coordinateur, créer/mettre à jour l'entrée coordinateur
-          if (attr.assignment_type === 'coordinator') {
-            await supabase
-              .from('course_coordinators')
-              .upsert({
-                course_id: courseData.id,
+            let teacherId: number;
+
+            if (existingTeacher) {
+              teacherId = existingTeacher.id;
+            } else {
+              const { data: newTeacher, error: teacherError } = await supabase
+                .from('teachers')
+                .insert({
+                  first_name: attribution.prenom,
+                  last_name: attribution.nom,
+                  email: attribution.email_ucl || `${attribution.prenom.toLowerCase()}.${attribution.nom.toLowerCase()}@uclouvain.be`,
+                  status: attribution.fonction || 'active'
+                })
+                .select('id')
+                .single();
+
+              if (teacherError || !newTeacher) {
+                result.warnings.push(`Enseignant non créé pour ${attribution.nom} ${attribution.prenom}: ${teacherError?.message}`);
+                continue;
+              }
+              
+              teacherId = newTeacher.id;
+              result.teachers_created++;
+            }
+
+            // 3. Créer l'attribution
+            const { error: attributionError } = await supabase
+              .from('hour_attributions')
+              .insert({
+                course_id: courseId,
                 teacher_id: teacherId,
-                email: attr.teacher_email,
-                name: attr.teacher_name,
-                is_primary: true
-              }, {
-                onConflict: 'course_id,teacher_id'
+                vol1_hours: attribution.vol1 || 0,
+                vol2_hours: attribution.vol2_attrib || 0,
+                assignment_type: attribution.type || 'standard',
+                notes: [
+                  attribution.remarque,
+                  attribution.rem_spec,
+                  attribution.remarque_candidature
+                ].filter(Boolean).join(' | ') || null,
+                status: 'active'
               });
+
+            if (attributionError) {
+              result.warnings.push(`Attribution non créée pour ${attribution.nom} ${attribution.prenom} sur ${courseCode}: ${attributionError.message}`);
+            } else {
+              result.attributions_created++;
+            }
           }
 
+          result.success++;
         } catch (error) {
-          console.error('Erreur lors du traitement de l\'attribution:', error);
-          result.errors.push(`Erreur ${attr.course_code}: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
+          result.errors.push(`Erreur traitement cours ${courseCode}: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
         }
       }
 
       setImportResult(result);
-
+      
       if (result.success > 0) {
         toast({
-          title: "Import réussi",
-          description: `${result.success} attributions importées avec succès.`,
+          title: "Import terminé",
+          description: `${result.courses_created} cours créés, ${result.teachers_created} enseignants créés, ${result.attributions_created} attributions créées`,
         });
-
         onSuccess?.();
-      }
-
-      if (result.errors.length > 0) {
-        toast({
-          title: "Import partiellement réussi",
-          description: `${result.errors.length} erreurs rencontrées.`,
-          variant: "destructive",
-        });
       }
 
     } catch (error) {
       console.error('Erreur lors de l\'import:', error);
+      result.errors.push(error instanceof Error ? error.message : 'Erreur inconnue');
+      setImportResult(result);
       toast({
         title: "Erreur d'import",
-        description: error instanceof Error ? error.message : 'Erreur inconnue',
-        variant: "destructive",
+        description: "Une erreur est survenue lors de l'import",
+        variant: "destructive"
       });
     } finally {
       setImporting(false);
@@ -286,184 +389,188 @@ export const AttributionImportDialog: React.FC<AttributionImportDialogProps> = (
     onOpenChange(false);
   };
 
+  const downloadTemplate = () => {
+    const templateData = [
+      ['Cours', 'Intitulé abrégé', 'Intit.Complet', 'Inactif', 'Etat vac.', 'Cours en propo.', 'Vol1. 2025', 'Vol2.', 'Coef1', 'Coef2', 'Périodicité', 'Dpt Charge', 'Dpt Attribution', 'Type', 'D', 'P', 'C', 'Except./Ord.', 'Nom', 'Prénom', 'Enseignant', 'Email UCL', 'Candidature', 'Fonction', 'Supplée', 'Début', 'Durée', 'Cause de vac.', 'Cause décision', 'Vol1.', 'Vol2.', 'Mode paiement vol1', 'Mode paiement vol2', 'Poste', 'Remarque', 'Rem. spec.', 'Procédure d\'attribution', 'Remarque candidature', 'Id équipe', 'Candidature en ligne'],
+      ['LMAT1111', 'Mathématiques', 'Mathématiques fondamentales', 'Non', 'Vacant', 'Non', '30', '15', '1', '1', 'Annuel', 'MATH', 'MATH', 'Cours', 'Oui', 'Non', 'Non', 'Ordinaire', 'Dupont', 'Jean', 'Jean Dupont', 'jean.dupont@uclouvain.be', 'Oui', 'Professeur', 'Non', '2024-09-01', '1 an', '', '', '25', '10', 'Vacataire', 'Standard', 'RAS', 'Standard', 'Candidature acceptée', '1', 'Oui']
+    ];
+
+    const ws = XLSX.utils.aoa_to_sheet(templateData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Template');
+    XLSX.writeFile(wb, 'template_attributions.xlsx');
+
+    toast({
+      title: "Template téléchargé",
+      description: "Le fichier template_attributions.xlsx a été téléchargé"
+    });
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Users className="h-5 w-5" />
-            Import des attributions d'heures
-          </DialogTitle>
-          <DialogDescription>
-            Importez les attributions d'heures depuis un fichier CSV avec les coordinateurs et enseignants
-          </DialogDescription>
+          <DialogTitle>Import des attributions Excel</DialogTitle>
         </DialogHeader>
 
-        <Tabs defaultValue="import" className="space-y-4">
-          <TabsList>
+        <Tabs defaultValue="import" className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="import">Import</TabsTrigger>
             <TabsTrigger value="format">Format attendu</TabsTrigger>
           </TabsList>
 
           <TabsContent value="format" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Format du fichier CSV</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <h4 className="font-medium mb-2">Colonnes requises :</h4>
-                  <ul className="list-disc list-inside space-y-1 text-sm">
-                    <li><code>Code cours</code> - Code du cours (ex: WMEDE1159)</li>
-                    <li><code>Nom enseignant</code> - Nom complet de l'enseignant</li>
-                    <li><code>Email enseignant</code> - Adresse email de l'enseignant</li>
-                    <li><code>Type attribution</code> - coordinator, assistant, lecturer, tp_supervisor</li>
-                    <li><code>Volume 1</code> - Nombre d'heures volume 1</li>
-                    <li><code>Volume 2</code> - Nombre d'heures volume 2</li>
-                    <li><code>Notes</code> - Remarques (optionnel)</li>
-                  </ul>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-medium">Format du fichier Excel</h3>
+                <Button onClick={downloadTemplate} variant="outline" size="sm">
+                  <Download className="w-4 h-4 mr-2" />
+                  Télécharger template
+                </Button>
+              </div>
+              
+              <div className="bg-muted p-4 rounded-lg">
+                <h4 className="font-medium mb-2">Colonnes requises (dans l'ordre) :</h4>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div>• Cours</div>
+                  <div>• Intitulé abrégé</div>
+                  <div>• Intit.Complet</div>
+                  <div>• Inactif</div>
+                  <div>• Etat vac.</div>
+                  <div>• Cours en propo.</div>
+                  <div>• Vol1. 2025</div>
+                  <div>• Vol2.</div>
+                  <div>• Coef1</div>
+                  <div>• Coef2</div>
+                  <div>• Périodicité</div>
+                  <div>• Dpt Charge</div>
+                  <div>• Dpt Attribution</div>
+                  <div>• Type</div>
+                  <div>• D</div>
+                  <div>• P</div>
+                  <div>• C</div>
+                  <div>• Except./Ord.</div>
+                  <div>• Nom</div>
+                  <div>• Prénom</div>
+                  <div>• Enseignant</div>
+                  <div>• Email UCL</div>
+                  <div>• Candidature</div>
+                  <div>• Fonction</div>
+                  <div>• Supplée</div>
+                  <div>• Début</div>
+                  <div>• Durée</div>
+                  <div>• Cause de vac.</div>
+                  <div>• Cause décision</div>
+                  <div>• Vol1.</div>
+                  <div>• Vol2.</div>
+                  <div>• Mode paiement vol1</div>
+                  <div>• Mode paiement vol2</div>
+                  <div>• Poste</div>
+                  <div>• Remarque</div>
+                  <div>• Rem. spec.</div>
+                  <div>• Procédure d'attribution</div>
+                  <div>• Remarque candidature</div>
+                  <div>• Id équipe</div>
+                  <div>• Candidature en ligne</div>
                 </div>
+              </div>
 
-                <Alert>
-                  <AlertTriangle className="h-4 w-4" />
-                  <AlertDescription>
-                    Les enseignants non existants seront créés automatiquement.
-                    Les coordinateurs seront automatiquement ajoutés à la table des coordinateurs.
-                  </AlertDescription>
-                </Alert>
-              </CardContent>
-            </Card>
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <h4 className="font-medium mb-2 text-blue-800">Notes importantes :</h4>
+                <ul className="text-sm text-blue-700 space-y-1">
+                  <li>• Le fichier doit être au format Excel (.xlsx) ou CSV</li>
+                  <li>• Chaque ligne représente une attribution d'enseignant à un cours</li>
+                  <li>• Un même cours peut avoir plusieurs lignes (plusieurs enseignants)</li>
+                  <li>• Les colonnes doivent correspondre exactement aux noms indiqués</li>
+                  <li>• Les volumes doivent être des nombres</li>
+                </ul>
+              </div>
+            </div>
           </TabsContent>
 
           <TabsContent value="import" className="space-y-4">
             {!importResult ? (
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="space-y-4">
-                    <div>
-                      <Label htmlFor="attribution-file">Fichier CSV</Label>
-                      <Input
-                        id="attribution-file"
-                        type="file"
-                        accept=".csv"
-                        onChange={handleFileChange}
-                        disabled={importing}
-                      />
-                    </div>
-
-                    {selectedFile && (
-                      <Alert>
-                        <FileSpreadsheet className="h-4 w-4" />
-                        <AlertDescription>
-                          Fichier sélectionné : {selectedFile.name} ({Math.round(selectedFile.size / 1024)} KB)
-                        </AlertDescription>
-                      </Alert>
-                    )}
-
-                    <div className="flex justify-end gap-2">
-                      <Button variant="outline" onClick={handleClose} disabled={importing}>
-                        Annuler
-                      </Button>
-                      <Button 
-                        onClick={handleImport} 
-                        disabled={!selectedFile || importing}
-                        className="flex items-center gap-2"
-                      >
-                        {importing ? (
-                          <>
-                            <LoadingSpinner />
-                            Import en cours...
-                          </>
-                        ) : (
-                          <>
-                            <Upload className="h-4 w-4" />
-                            Importer
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ) : (
               <div className="space-y-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <CheckCircle className="h-5 w-5 text-green-500" />
-                      Résultat de l'import
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="flex gap-4">
-                      <Badge variant="default" className="bg-green-100 text-green-800">
-                        {importResult.success} succès
-                      </Badge>
-                      {importResult.errors.length > 0 && (
-                        <Badge variant="destructive">
-                          {importResult.errors.length} erreurs
-                        </Badge>
-                      )}
-                      {importResult.warnings.length > 0 && (
-                        <Badge className="bg-yellow-100 text-yellow-800">
-                          {importResult.warnings.length} avertissements
-                        </Badge>
-                      )}
-                    </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Fichier Excel (.xlsx, .xls) ou CSV</label>
+                  <Input
+                    type="file"
+                    accept=".xlsx,.xls,.csv"
+                    onChange={handleFileChange}
+                  />
+                  {selectedFile && (
+                    <p className="text-sm text-muted-foreground">
+                      Fichier sélectionné : {selectedFile.name}
+                    </p>
+                  )}
+                </div>
 
-                    {importResult.errors.length > 0 && (
-                      <div>
-                        <h4 className="font-medium text-red-600 mb-2">Erreurs :</h4>
-                        <ul className="list-disc list-inside space-y-1 text-sm text-red-600">
-                          {importResult.errors.map((error, index) => (
-                            <li key={index}>{error}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-
-                    {importResult.warnings.length > 0 && (
-                      <div>
-                        <h4 className="font-medium text-yellow-600 mb-2">Avertissements :</h4>
-                        <ul className="list-disc list-inside space-y-1 text-sm text-yellow-600">
-                          {importResult.warnings.map((warning, index) => (
-                            <li key={index}>{warning}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-
-                    {importResult.imported.length > 0 && (
-                      <div>
-                        <h4 className="font-medium mb-2">Attributions importées ({importResult.imported.length}) :</h4>
-                        <div className="max-h-40 overflow-y-auto">
-                          <div className="space-y-2">
-                            {importResult.imported.slice(0, 10).map((attr, index) => (
-                              <div key={index} className="text-sm p-2 bg-gray-50 rounded">
-                                <strong>{attr.course_code}</strong> - {attr.teacher_name} ({attr.assignment_type}) 
-                                - Vol1: {attr.vol1_hours}h, Vol2: {attr.vol2_hours}h
-                              </div>
-                            ))}
-                            {importResult.imported.length > 10 && (
-                              <div className="text-sm text-gray-500 text-center">
-                                ... et {importResult.imported.length - 10} autres
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-
-                <div className="flex justify-end gap-2">
-                  <Button variant="outline" onClick={resetForm}>
-                    Nouvel import
+                <div className="flex gap-2">
+                  <Button
+                    onClick={handleImport}
+                    disabled={!selectedFile || importing}
+                    className="flex-1"
+                  >
+                    {importing ? "Import en cours..." : "Importer"}
                   </Button>
-                  <Button onClick={handleClose}>
-                    Fermer
+                  <Button variant="outline" onClick={handleClose}>
+                    Annuler
                   </Button>
                 </div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  {importResult.success > 0 ? (
+                    <CheckCircle className="w-5 h-5 text-green-600" />
+                  ) : (
+                    <AlertCircle className="w-5 h-5 text-red-600" />
+                  )}
+                  <span className="font-medium">
+                    Import terminé : {importResult.success} cours traités
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-3 gap-4 text-center">
+                  <div className="bg-green-50 p-3 rounded">
+                    <div className="text-2xl font-bold text-green-600">{importResult.courses_created}</div>
+                    <div className="text-sm text-green-700">Cours créés</div>
+                  </div>
+                  <div className="bg-blue-50 p-3 rounded">
+                    <div className="text-2xl font-bold text-blue-600">{importResult.teachers_created}</div>
+                    <div className="text-sm text-blue-700">Enseignants créés</div>
+                  </div>
+                  <div className="bg-purple-50 p-3 rounded">
+                    <div className="text-2xl font-bold text-purple-600">{importResult.attributions_created}</div>
+                    <div className="text-sm text-purple-700">Attributions créées</div>
+                  </div>
+                </div>
+
+                {importResult.errors.length > 0 && (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded">
+                    <h4 className="font-medium text-red-800 mb-2">Erreurs :</h4>
+                    <ul className="text-sm text-red-700 space-y-1 max-h-32 overflow-y-auto">
+                      {importResult.errors.map((error, index) => (
+                        <li key={index}>• {error}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {importResult.warnings.length > 0 && (
+                  <div className="p-3 bg-yellow-50 border border-yellow-200 rounded">
+                    <h4 className="font-medium text-yellow-800 mb-2">Avertissements :</h4>
+                    <ul className="text-sm text-yellow-700 space-y-1 max-h-32 overflow-y-auto">
+                      {importResult.warnings.map((warning, index) => (
+                        <li key={index}>• {warning}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                <Button onClick={handleClose} className="w-full">
+                  Fermer
+                </Button>
               </div>
             )}
           </TabsContent>

@@ -189,6 +189,8 @@ const Admin = () => {
         return <UnifiedCourseManagement />;
       case 'tools':
         return <UnifiedToolsPanel />;
+      case 'attribution-import':
+        return <AttributionImportPanel />;
       case 'settings':
         return <div className="text-center py-8">
           <p className="text-gray-600">Page des paramètres en cours de développement</p>

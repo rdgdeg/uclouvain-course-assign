@@ -115,6 +115,13 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
       description: 'Import fichier Excel'
     },
     {
+      id: 'imported-courses',
+      label: 'Cours importés',
+      icon: BookOpen,
+      description: 'Liste des cours importés',
+      badge: stats.total
+    },
+    {
       id: 'settings',
       label: 'Paramètres',
       icon: Settings,

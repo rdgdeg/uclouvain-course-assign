@@ -106,8 +106,9 @@ export const AttributionImportDialog: React.FC<{
           const headers = (jsonData[0] as string[]).map(h => h?.toString().trim() || '');
           const attributions: AttributionData[] = [];
 
-          // Mapping des colonnes
+          // Mapping des colonnes pour tous les formats possibles
           const columnMapping: { [key: string]: keyof AttributionData } = {
+            // Format standard
             'Cours': 'cours',
             'Intitulé abrégé': 'intitule_abrege',
             'Intit.Complet': 'intit_complet',
@@ -118,6 +119,8 @@ export const AttributionImportDialog: React.FC<{
             'Vol2.': 'vol2',
             'Coef1': 'coef1',
             'Coef2': 'coef2',
+            'Vol.1 Total': 'vol1_2025', // Nouvelle colonne
+            'Vol.2 total': 'vol2', // Nouvelle colonne
             'Périodicité': 'periodicite',
             'Dpt Charge': 'dpt_charge',
             'Dpt Attribution': 'dpt_attribution',
@@ -172,7 +175,12 @@ export const AttributionImportDialog: React.FC<{
               
               if (key === 'vol1_2025' || key === 'vol2' || key === 'coef1' || key === 'coef2' || 
                   key === 'vol1' || key === 'vol2_attrib') {
-                (attribution as any)[key] = parseFloat(value) || 0;
+                // Gérer les valeurs #VALEUR! en les convertissant en 0
+                if (value === '#VALEUR!' || value === '#VALUE!' || !value) {
+                  (attribution as any)[key] = 0;
+                } else {
+                  (attribution as any)[key] = parseFloat(value) || 0;
+                }
               } else {
                 (attribution as any)[key] = value?.toString() || '';
               }
@@ -291,7 +299,14 @@ export const AttributionImportDialog: React.FC<{
 
           // 2. Traiter les enseignants et attributions
           for (const attribution of courseAttributions) {
-            if (!attribution.nom || !attribution.prenom) continue;
+            // Vérifier si l'enseignant a des heures attribuées ou s'il est mentionné
+            if (!attribution.nom || !attribution.prenom || 
+                ((!attribution.vol1 || attribution.vol1 === 0) && 
+                 (!attribution.vol2_attrib || attribution.vol2_attrib === 0))) {
+              // Log pour debug
+              console.log(`Skipping attribution for ${attribution.nom} ${attribution.prenom} - no hours assigned`);
+              continue;
+            }
 
             // Créer/mettre à jour l'enseignant
             const { data: existingTeacher } = await supabase

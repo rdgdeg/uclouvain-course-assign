@@ -2,11 +2,14 @@ import React, { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Upload, AlertCircle, CheckCircle, Download } from "lucide-react";
+import { Upload, AlertCircle, CheckCircle, Download, Settings } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import * as XLSX from 'xlsx';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface AttributionData {
   cours: string;
@@ -62,6 +65,37 @@ interface ImportResult {
   attributions_created: number;
 }
 
+// Définition des colonnes attendues avec leurs labels
+const EXPECTED_COLUMNS: Array<{ key: keyof AttributionData; label: string; required: boolean; description?: string }> = [
+  { key: 'cours', label: 'Code du cours', required: true, description: 'Sigle ou code du cours (ex: LMAT1111)' },
+  { key: 'intitule_abrege', label: 'Intitulé abrégé', required: false },
+  { key: 'intit_complet', label: 'Intitulé complet', required: true },
+  { key: 'inactif', label: 'Inactif', required: false },
+  { key: 'etat_vac', label: 'État vacant', required: false },
+  { key: 'cours_en_propo', label: 'Cours en proposition', required: false },
+  { key: 'vol1_old', label: 'Vol1. (ancien)', required: false },
+  { key: 'vol2_old', label: 'Vol2. (ancien)', required: false },
+  { key: 'coef1', label: 'Coefficient 1', required: false },
+  { key: 'coef2', label: 'Coefficient 2', required: false },
+  { key: 'vol1_total', label: 'Volume 1 total', required: true, description: 'Volume total Vol1 du cours' },
+  { key: 'vol2_total', label: 'Volume 2 total', required: true, description: 'Volume total Vol2 du cours' },
+  { key: 'periodicite', label: 'Périodicité', required: false },
+  { key: 'dpt_charge', label: 'Département charge', required: false },
+  { key: 'dpt_attribution', label: 'Département attribution', required: false },
+  { key: 'type', label: 'Type', required: false },
+  { key: 'nom', label: 'Nom enseignant', required: true },
+  { key: 'prenom', label: 'Prénom enseignant', required: true },
+  { key: 'email_ucl', label: 'Email UCL', required: false },
+  { key: 'fonction', label: 'Fonction', required: false },
+  { key: 'supplee', label: 'Supplée', required: false },
+  { key: 'debut', label: 'Début', required: false },
+  { key: 'duree', label: 'Durée', required: false },
+  { key: 'cause_vac', label: 'Cause de vacance', required: false },
+  { key: 'cause_decision', label: 'Cause décision', required: false },
+  { key: 'vol1_hours', label: 'Vol1. Attribution', required: false, description: 'Heures Vol1 attribuées à l\'enseignant' },
+  { key: 'vol2_hours', label: 'Vol2. Attribution', required: false, description: 'Heures Vol2 attribuées à l\'enseignant' },
+];
+
 export const AttributionImportDialog: React.FC<{
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -70,9 +104,103 @@ export const AttributionImportDialog: React.FC<{
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
+  const [fileHeaders, setFileHeaders] = useState<string[]>([]);
+  const [columnMapping, setColumnMapping] = useState<Record<keyof AttributionData, string>>({} as Record<keyof AttributionData, string>);
+  const [showMapping, setShowMapping] = useState(false);
+  const [previewData, setPreviewData] = useState<any[]>([]);
   const { toast } = useToast();
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Fonction pour créer un mapping automatique basé sur la similarité des noms
+  const createAutoMapping = (headers: string[]): Record<keyof AttributionData, string> => {
+    const mapping: Record<string, string> = {};
+    
+    headers.forEach(header => {
+      const lowerHeader = header.toLowerCase().trim();
+      
+      // Mapping basé sur des mots-clés avec priorité
+      EXPECTED_COLUMNS.forEach(col => {
+        const lowerLabel = col.label.toLowerCase();
+        const lowerKey = col.key.toLowerCase();
+        
+        // Correspondances spécifiques pour les colonnes fournies par l'utilisateur
+        let matched = false;
+        
+        if (col.key === 'cours') {
+          matched = lowerHeader === 'cours' || lowerHeader === 'sigle' || lowerHeader === 'cnum' || 
+                   lowerHeader.includes('cours') || lowerHeader.includes('sigle');
+        } else if (col.key === 'intitule_abrege') {
+          matched = lowerHeader.includes('intitulé abrégé') || lowerHeader.includes('intitule abrege');
+        } else if (col.key === 'intit_complet') {
+          matched = lowerHeader.includes('intit.complet') || lowerHeader.includes('intit complet') || 
+                   lowerHeader.includes('intitulé complet');
+        } else if (col.key === 'vol1_total') {
+          matched = lowerHeader.includes('volume 1 total') || lowerHeader.includes('vol1. 2026') ||
+                   lowerHeader === 'vol1. 2026';
+        } else if (col.key === 'vol2_total') {
+          matched = lowerHeader.includes('volume 2 total') || lowerHeader === 'vol2.' ||
+                   (lowerHeader.includes('vol2') && lowerHeader.includes('total'));
+        } else if (col.key === 'vol1_hours') {
+          matched = lowerHeader.includes('vol1. attribution') || 
+                   (lowerHeader.includes('vol1') && lowerHeader.includes('attribution'));
+        } else if (col.key === 'vol2_hours') {
+          matched = lowerHeader.includes('vol2. attribution') || 
+                   (lowerHeader.includes('vol2') && lowerHeader.includes('attribution'));
+        } else if (col.key === 'dpt_charge') {
+          matched = lowerHeader.includes('dpt charge') || lowerHeader.includes('dpt. charge') ||
+                   lowerHeader === 'dpt charge';
+        } else if (col.key === 'dpt_attribution') {
+          matched = lowerHeader.includes('dpt attribution') || lowerHeader.includes('dpt. attribution') ||
+                   lowerHeader === 'dpt attribution';
+        } else if (col.key === 'email_ucl') {
+          matched = lowerHeader.includes('email ucl') || lowerHeader === 'email ucl';
+        } else if (col.key === 'etat_vac') {
+          matched = lowerHeader.includes('état vac') || lowerHeader.includes('etat vac') ||
+                   lowerHeader === 'état vac.' || lowerHeader === 'etat vac.';
+        } else if (col.key === 'cause_vac') {
+          matched = lowerHeader.includes('cause de vac') || lowerHeader === 'cause de vac.';
+        } else if (col.key === 'cause_decision') {
+          matched = lowerHeader.includes('cause décision') || lowerHeader === 'cause décision';
+        } else if (col.key === 'nom') {
+          matched = lowerHeader === 'nom';
+        } else if (col.key === 'prenom') {
+          matched = lowerHeader === 'prénom' || lowerHeader === 'prenom';
+        } else if (col.key === 'fonction') {
+          matched = lowerHeader === 'fonction';
+        } else if (col.key === 'supplee') {
+          matched = lowerHeader === 'supplée' || lowerHeader === 'supplee';
+        } else if (col.key === 'debut') {
+          matched = lowerHeader === 'début' || lowerHeader === 'debut';
+        } else if (col.key === 'duree') {
+          matched = lowerHeader === 'durée' || lowerHeader === 'duree';
+        } else if (col.key === 'periodicite') {
+          matched = lowerHeader === 'périodicité' || lowerHeader === 'periodicite';
+        } else if (col.key === 'type') {
+          matched = lowerHeader === 'type';
+        } else if (col.key === 'inactif') {
+          matched = lowerHeader === 'inactif';
+        } else if (col.key === 'cours_en_propo') {
+          matched = lowerHeader.includes('cours en propo') || lowerHeader === 'cours en propo.';
+        } else if (col.key === 'coef1') {
+          matched = lowerHeader === 'coef1';
+        } else if (col.key === 'coef2') {
+          matched = lowerHeader === 'coef2';
+        } else {
+          // Correspondance générique
+          matched = lowerHeader === lowerLabel || 
+                   lowerHeader.includes(lowerKey) || 
+                   lowerKey.includes(lowerHeader);
+        }
+        
+        if (matched && !mapping[col.key]) {
+          mapping[col.key] = header;
+        }
+      });
+    });
+    
+    return mapping as Record<keyof AttributionData, string>;
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       // Vérifier le type de fichier
@@ -84,12 +212,69 @@ export const AttributionImportDialog: React.FC<{
         });
         return;
       }
+      
       setSelectedFile(file);
       setImportResult(null);
+      
+      // Lire les en-têtes du fichier
+      try {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          try {
+            const data = new Uint8Array(event.target?.result as ArrayBuffer);
+            const workbook = XLSX.read(data, { type: 'array' });
+            const firstSheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[firstSheetName];
+            const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+            
+            if (jsonData.length < 1) {
+              toast({
+                title: "Fichier vide",
+                description: "Le fichier ne contient pas de données",
+                variant: "destructive"
+              });
+              return;
+            }
+            
+            const headers = (jsonData[0] as string[]).map(h => h?.toString().trim() || '');
+            setFileHeaders(headers);
+            
+            // Créer un mapping automatique
+            const autoMapping = createAutoMapping(headers);
+            setColumnMapping(autoMapping);
+            
+            // Prévisualiser les premières lignes
+            const preview = jsonData.slice(1, 4).map((row: any) => {
+              const rowData: any = {};
+              headers.forEach((header, index) => {
+                rowData[header] = row[index];
+              });
+              return rowData;
+            });
+            setPreviewData(preview);
+            
+            // Afficher l'interface de mapping
+            setShowMapping(true);
+          } catch (error) {
+            toast({
+              title: "Erreur de lecture",
+              description: "Impossible de lire le fichier",
+              variant: "destructive"
+            });
+          }
+        };
+        reader.readAsArrayBuffer(file);
+      } catch (error) {
+        toast({
+          title: "Erreur",
+          description: "Impossible de charger le fichier",
+          variant: "destructive"
+        });
+      }
     }
   };
 
-  const parseExcelFile = async (file: File): Promise<AttributionData[]> => {
+  const parseExcelFile = async (file: File, customMapping: Record<keyof AttributionData, string>): Promise<AttributionData[]> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = (e) => {
@@ -108,72 +293,24 @@ export const AttributionImportDialog: React.FC<{
           const headers = (jsonData[0] as string[]).map(h => h?.toString().trim() || '');
           const attributions: AttributionData[] = [];
 
-          // Mapping des colonnes pour tous les formats possibles
-          const columnMapping: { [key: string]: keyof AttributionData } = {
-            // Format standard
-            'Cours': 'cours',
-            'Intitulé abrégé': 'intitule_abrege',
-            'Intit.Complet': 'intit_complet',
-            'Inactif': 'inactif',
-            'Etat vac.': 'etat_vac',
-            'Cours en propo.': 'cours_en_propo',
-            'Vol1.': 'vol1_old', // Ancienne colonne vol1 du cours
-            'Vol2.': 'vol2_old', // Ancienne colonne vol2 du cours
-            'Coef1': 'coef1',
-            'Coef2': 'coef2',
-            'Vol.1 Total': 'vol1_total', // Volume total Vol1 du cours
-            'Vol.2 total': 'vol2_total', // Volume total Vol2 du cours
-            'Périodicité': 'periodicite',
-            'Dpt Charge': 'dpt_charge',
-            'Dpt Attribution': 'dpt_attribution',
-            'Type': 'type',
-            'D': 'd',
-            'P': 'p',
-            'C': 'c',
-            'Except./Ord.': 'except_ord',
-            'Nom': 'nom',
-            'Prénom': 'prenom',
-            'Enseignant': 'enseignant',
-            'Email UCL': 'email_ucl',
-            'Candidature': 'candidature',
-            'Fonction': 'fonction',
-            'Supplée': 'supplee',
-            'Début': 'debut',
-            'Durée': 'duree',
-            'Cause de vac.': 'cause_vac',
-            'Cause décision': 'cause_decision',
-            'Mode paiement vol1': 'mode_paiement_vol1',
-            'Mode paiement vol2': 'mode_paiement_vol2',
-            'Poste': 'poste',
-            'Remarque': 'remarque',
-            'Rem. spec.': 'rem_spec',
-            'Procédure d\'attribution': 'procedure_attribution',
-            'Remarque candidature': 'remarque_candidature',
-            'Id équipe': 'id_equipe',
-            'Candidature en ligne': 'candidature_en_ligne'
-          };
-
-          // Mapping spécial pour les colonnes Vol1. et Vol2. qui sont les heures attribuées (colonnes AC et AD)
-          const volumeMapping: { [key: string]: keyof AttributionData } = {};
-          headers.forEach((header, index) => {
-            // Identifier les colonnes de volume par leur position
-            // Vol1. pour les heures enseignant est typiquement en position 29-30 (colonne AC)
-            // Vol2. pour les heures enseignant est typiquement en position 30-31 (colonne AD)
-            if (header === 'Vol1.' && index > 25) { // Position tardive = heures enseignant
-              volumeMapping[index.toString()] = 'vol1_hours';
-            } else if (header === 'Vol2.' && index > 25) { // Position tardive = heures enseignant
-              volumeMapping[index.toString()] = 'vol2_hours';
-            }
-          });
-
-          // Créer un mapping des indices
+          // Créer un mapping des indices basé sur le mapping personnalisé
           const columnIndices: { [key: string]: number } = {};
-          headers.forEach((header, index) => {
-            const mappedKey = columnMapping[header];
-            if (mappedKey) {
-              columnIndices[mappedKey] = index;
+          Object.entries(customMapping).forEach(([expectedKey, fileHeader]) => {
+            if (fileHeader) {
+              const index = headers.findIndex(h => h === fileHeader);
+              if (index !== -1) {
+                columnIndices[expectedKey] = index;
+              }
             }
           });
+
+          // Vérifier les colonnes requises
+          const requiredColumns = EXPECTED_COLUMNS.filter(col => col.required);
+          const missingRequired = requiredColumns.filter(col => !columnIndices[col.key]);
+          if (missingRequired.length > 0) {
+            reject(new Error(`Colonnes requises manquantes : ${missingRequired.map(c => c.label).join(', ')}`));
+            return;
+          }
 
           // Parser les données
           for (let i = 1; i < jsonData.length; i++) {
@@ -182,34 +319,22 @@ export const AttributionImportDialog: React.FC<{
 
             const attribution: Partial<AttributionData> = {};
             
-            // Traiter les colonnes mappées normalement
+            // Traiter les colonnes mappées
             Object.keys(columnIndices).forEach(key => {
               const index = columnIndices[key];
               const value = row[index];
               
+              // Colonnes numériques
               if (key === 'vol1_total' || key === 'vol2_total' || key === 'vol1_old' || key === 'vol2_old' || 
-                  key === 'coef1' || key === 'coef2') {
+                  key === 'coef1' || key === 'coef2' || key === 'vol1_hours' || key === 'vol2_hours') {
                 // Gérer les valeurs #VALEUR! en les convertissant en 0
-                if (value === '#VALEUR!' || value === '#VALUE!' || !value) {
+                if (value === '#VALEUR!' || value === '#VALUE!' || value === null || value === undefined) {
                   (attribution as any)[key] = 0;
                 } else {
                   (attribution as any)[key] = parseFloat(value) || 0;
                 }
               } else {
                 (attribution as any)[key] = value?.toString() || '';
-              }
-            });
-
-            // Traiter spécialement les colonnes de volume enseignant (Vol1. et Vol2. en position tardive)
-            Object.keys(volumeMapping).forEach(indexStr => {
-              const index = parseInt(indexStr);
-              const key = volumeMapping[indexStr];
-              const value = row[index];
-              
-              if (value === '#VALEUR!' || value === '#VALUE!' || !value) {
-                (attribution as any)[key] = 0;
-              } else {
-                (attribution as any)[key] = parseFloat(value) || 0;
               }
             });
 
@@ -245,8 +370,8 @@ export const AttributionImportDialog: React.FC<{
     };
 
     try {
-      // Parser le fichier Excel
-      const attributions = await parseExcelFile(selectedFile);
+      // Parser le fichier Excel avec le mapping personnalisé
+      const attributions = await parseExcelFile(selectedFile, columnMapping);
       
       if (attributions.length === 0) {
         result.errors.push("Aucune donnée valide trouvée dans le fichier");
@@ -444,6 +569,10 @@ export const AttributionImportDialog: React.FC<{
   const resetForm = () => {
     setSelectedFile(null);
     setImportResult(null);
+    setFileHeaders([]);
+    setColumnMapping({} as Record<keyof AttributionData, string>);
+    setShowMapping(false);
+    setPreviewData([]);
   };
 
   const handleClose = () => {
@@ -553,32 +682,128 @@ export const AttributionImportDialog: React.FC<{
           <TabsContent value="import" className="space-y-4">
             {!importResult ? (
               <div className="space-y-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Fichier Excel (.xlsx, .xls) ou CSV</label>
-                  <Input
-                    type="file"
-                    accept=".xlsx,.xls,.csv"
-                    onChange={handleFileChange}
-                  />
-                  {selectedFile && (
-                    <p className="text-sm text-muted-foreground">
-                      Fichier sélectionné : {selectedFile.name}
-                    </p>
-                  )}
-                </div>
+                {!showMapping ? (
+                  <>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Fichier Excel (.xlsx, .xls) ou CSV</label>
+                      <Input
+                        type="file"
+                        accept=".xlsx,.xls,.csv"
+                        onChange={handleFileChange}
+                      />
+                      {selectedFile && (
+                        <p className="text-sm text-muted-foreground">
+                          Fichier sélectionné : {selectedFile.name}
+                        </p>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <div className="space-y-4">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                          <Settings className="w-5 h-5" />
+                          Configuration du mapping des colonnes
+                        </CardTitle>
+                        <CardDescription>
+                          Associez chaque colonne attendue à une colonne de votre fichier Excel.
+                          Les colonnes marquées d'un * sont obligatoires.
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="grid gap-4 max-h-[500px] overflow-y-auto">
+                          {EXPECTED_COLUMNS.map((col) => (
+                            <div key={col.key} className="flex items-center gap-4">
+                              <div className="flex-1">
+                                <Label htmlFor={`mapping-${col.key}`} className="flex items-center gap-2">
+                                  {col.label}
+                                  {col.required && <span className="text-red-500">*</span>}
+                                </Label>
+                                {col.description && (
+                                  <p className="text-xs text-muted-foreground mt-1">{col.description}</p>
+                                )}
+                              </div>
+                              <Select
+                                value={columnMapping[col.key] || ''}
+                                onValueChange={(value) => {
+                                  setColumnMapping(prev => ({
+                                    ...prev,
+                                    [col.key]: value
+                                  }));
+                                }}
+                              >
+                                <SelectTrigger className="w-[250px]">
+                                  <SelectValue placeholder="Sélectionner une colonne" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="">-- Aucune --</SelectItem>
+                                  {fileHeaders.map((header) => (
+                                    <SelectItem key={header} value={header}>
+                                      {header}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          ))}
+                        </div>
+                        
+                        {previewData.length > 0 && (
+                          <div className="mt-4">
+                            <h4 className="text-sm font-medium mb-2">Aperçu des données (3 premières lignes)</h4>
+                            <div className="border rounded-lg overflow-auto max-h-40">
+                              <table className="w-full text-xs">
+                                <thead className="bg-muted">
+                                  <tr>
+                                    {fileHeaders.slice(0, 5).map((header) => (
+                                      <th key={header} className="p-2 text-left border-b">
+                                        {header}
+                                      </th>
+                                    ))}
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {previewData.map((row, idx) => (
+                                    <tr key={idx}>
+                                      {fileHeaders.slice(0, 5).map((header) => (
+                                        <td key={header} className="p-2 border-b">
+                                          {row[header] || '-'}
+                                        </td>
+                                      ))}
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
 
-                <div className="flex gap-2">
-                  <Button
-                    onClick={handleImport}
-                    disabled={!selectedFile || importing}
-                    className="flex-1"
-                  >
-                    {importing ? "Import en cours..." : "Importer"}
-                  </Button>
-                  <Button variant="outline" onClick={handleClose}>
-                    Annuler
-                  </Button>
-                </div>
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={handleImport}
+                        disabled={!selectedFile || importing}
+                        className="flex-1"
+                      >
+                        {importing ? "Import en cours..." : "Importer avec ce mapping"}
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        onClick={() => {
+                          setShowMapping(false);
+                          setSelectedFile(null);
+                        }}
+                      >
+                        Changer de fichier
+                      </Button>
+                      <Button variant="outline" onClick={handleClose}>
+                        Annuler
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="space-y-4">

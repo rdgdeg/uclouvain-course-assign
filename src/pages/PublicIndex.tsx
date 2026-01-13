@@ -46,110 +46,109 @@ const PublicIndex = () => {
           </div>
         </div>
 
-        {/* Choix principaux */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 max-w-7xl mx-auto mb-16">
-          
-          {/* Contrôle des attributions */}
-          <Card className="hover:shadow-2xl transition-all duration-500 hover:scale-105 border-2 hover:border-primary/30 animate-slide-in-left group">
+        {/* Candidature en équipe - Action principale */}
+        <div className="max-w-4xl mx-auto mb-16">
+          <Card className="hover:shadow-2xl transition-all duration-500 border-2 border-primary/30 animate-fade-in-up bg-gradient-to-br from-primary/5 to-accent/5">
             <CardHeader className="pb-6">
               <div className="flex items-center gap-4 mb-6">
-                <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
-                  <BarChart3 className="h-8 w-8 text-white" />
+                <div className="w-20 h-20 bg-gradient-to-r from-primary to-accent rounded-xl flex items-center justify-center shadow-lg">
+                  <Users className="h-10 w-10 text-white" />
                 </div>
                 <div>
-                  <CardTitle className="text-2xl">Contrôle des Attributions</CardTitle>
-                  <Badge variant="default" className="mt-2">
-                    <TrendingUp className="h-3 w-3 mr-1" />
-                    Année en cours
+                  <CardTitle className="text-3xl">Candidature en équipe</CardTitle>
+                  <Badge variant="default" className="mt-2 text-base px-3 py-1">
+                    <Star className="h-4 w-4 mr-1" />
+                    Nouveau
                   </Badge>
                 </div>
               </div>
             </CardHeader>
             <CardContent className="space-y-6">
-              <p className="text-muted-foreground text-lg leading-relaxed">
-                Consultez les cours de l'année, leurs attributions, cotitulaires et répartitions horaires. 
-                Demandez des modifications si nécessaire.
+              <p className="text-muted-foreground text-xl leading-relaxed">
+                Proposez votre candidature pour un cours en équipe. Sélectionnez un cours, 
+                renseignez les membres de votre équipe et leurs volumes horaires.
               </p>
               
-              <div className="space-y-4">
-                <div className="flex items-center gap-4 p-3 bg-blue-50 rounded-lg">
-                  <FileSpreadsheet className="h-5 w-5 text-blue-600" />
-                  <span className="text-sm font-medium">Visualisation des cours et attributions</span>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="flex items-center gap-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                  <BookOpen className="h-6 w-6 text-blue-600" />
+                  <span className="font-medium">Sélection d'un cours dans la liste</span>
                 </div>
-                <div className="flex items-center gap-4 p-3 bg-green-50 rounded-lg">
-                  <CheckCircle className="h-5 w-5 text-green-600" />
-                  <span className="text-sm font-medium">Vérification des volumes horaires</span>
+                <div className="flex items-center gap-4 p-4 bg-green-50 rounded-lg border border-green-200">
+                  <Users className="h-6 w-6 text-green-600" />
+                  <span className="font-medium">Composition de l'équipe</span>
                 </div>
-                <div className="flex items-center gap-4 p-3 bg-purple-50 rounded-lg">
-                  <Mail className="h-5 w-5 text-purple-600" />
-                  <span className="text-sm font-medium">Demandes de modification</span>
+                <div className="flex items-center gap-4 p-4 bg-purple-50 rounded-lg border border-purple-200">
+                  <CheckCircle className="h-6 w-6 text-purple-600" />
+                  <span className="font-medium">Validation des volumes horaires</span>
                 </div>
-                <div className="flex items-center gap-4 p-3 bg-orange-50 rounded-lg">
-                  <Users className="h-5 w-5 text-orange-600" />
-                  <span className="text-sm font-medium">Gestion des cotitulaires</span>
+                <div className="flex items-center gap-4 p-4 bg-orange-50 rounded-lg border border-orange-200">
+                  <Clock className="h-6 w-6 text-orange-600" />
+                  <span className="font-medium">Envoi et suivi</span>
                 </div>
               </div>
 
               <Button 
-                onClick={() => navigate('/controle-attributions')} 
-                className="w-full group text-lg py-6"
+                onClick={() => navigate('/candidature-equipe')} 
+                className="w-full group text-xl py-8 shadow-lg"
                 size="lg"
               >
-                Accéder au contrôle
-                <ArrowRight className="h-5 w-5 ml-2 group-hover:translate-x-2 transition-transform" />
+                Commencer ma candidature
+                <ArrowRight className="h-6 w-6 ml-2 group-hover:translate-x-2 transition-transform" />
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Autres options */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 max-w-7xl mx-auto mb-16">
+          
+          {/* Contrôle des attributions */}
+          <Card className="hover:shadow-xl transition-all duration-300 border hover:border-primary/30">
+            <CardHeader>
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
+                  <BarChart3 className="h-6 w-6 text-white" />
+                </div>
+                <CardTitle className="text-xl">Contrôle des Attributions</CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground mb-4">
+                Consultez les cours, leurs attributions et répartitions horaires.
+              </p>
+              <Button 
+                onClick={() => navigate('/controle-attributions')} 
+                variant="outline"
+                className="w-full"
+              >
+                Accéder
+                <ArrowRight className="h-4 w-4 ml-2" />
               </Button>
             </CardContent>
           </Card>
 
           {/* Cours vacants */}
-          <Card className="hover:shadow-2xl transition-all duration-500 hover:scale-105 border-2 hover:border-accent/30 animate-slide-in-right group">
-            <CardHeader className="pb-6">
-              <div className="flex items-center gap-4 mb-6">
-                <div className="w-16 h-16 bg-gradient-to-r from-green-500 to-green-600 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
-                  <BookOpen className="h-8 w-8 text-white" />
+          <Card className="hover:shadow-xl transition-all duration-300 border hover:border-accent/30">
+            <CardHeader>
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-gradient-to-r from-green-500 to-green-600 rounded-lg flex items-center justify-center">
+                  <BookOpen className="h-6 w-6 text-white" />
                 </div>
-                <div>
-                  <CardTitle className="text-2xl">Cours Vacants</CardTitle>
-                  <Badge variant="secondary" className="mt-2">
-                    <Clock className="h-3 w-3 mr-1" />
-                    Attribution libre
-                  </Badge>
-                </div>
+                <CardTitle className="text-xl">Cours Vacants</CardTitle>
               </div>
             </CardHeader>
-            <CardContent className="space-y-6">
-              <p className="text-muted-foreground text-lg leading-relaxed">
-                Explorez les cours disponibles et proposez votre candidature individuelle 
-                ou en équipe pour l'enseignement.
+            <CardContent>
+              <p className="text-muted-foreground mb-4">
+                Explorez tous les cours disponibles et leurs détails.
               </p>
-              
-              <div className="space-y-4">
-                <div className="flex items-center gap-4 p-3 bg-green-50 rounded-lg">
-                  <BookOpen className="h-5 w-5 text-green-600" />
-                  <span className="text-sm font-medium">Catalogue des cours disponibles</span>
-                </div>
-                <div className="flex items-center gap-4 p-3 bg-blue-50 rounded-lg">
-                  <Users className="h-5 w-5 text-blue-600" />
-                  <span className="text-sm font-medium">Candidatures individuelles et équipes</span>
-                </div>
-                <div className="flex items-center gap-4 p-3 bg-orange-50 rounded-lg">
-                  <Clock className="h-5 w-5 text-orange-600" />
-                  <span className="text-sm font-medium">Suivi des candidatures</span>
-                </div>
-                <div className="flex items-center gap-4 p-3 bg-purple-50 rounded-lg">
-                  <CheckCircle className="h-5 w-5 text-purple-600" />
-                  <span className="text-sm font-medium">Attribution rapide</span>
-                </div>
-              </div>
-
               <Button 
                 onClick={() => navigate('/cours-vacants')} 
                 variant="outline"
-                className="w-full group text-lg py-6 border-2"
-                size="lg"
+                className="w-full"
               >
-                Voir les cours vacants
-                <ArrowRight className="h-5 w-5 ml-2 group-hover:translate-x-2 transition-transform" />
+                Voir les cours
+                <ArrowRight className="h-4 w-4 ml-2" />
               </Button>
             </CardContent>
           </Card>

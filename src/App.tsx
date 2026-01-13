@@ -11,6 +11,7 @@ import AttributionControl from "./pages/AttributionControl";
 import NotFound from "./pages/NotFound";
 import FreeProposal from "./pages/FreeProposal";
 import ModificationRequests from "./pages/ModificationRequests";
+import TeamApplication from "./pages/TeamApplication";
 import { CourseVerificationPage } from "./components/CourseVerificationPage";
 import { AppAuth } from "./components/AppAuth";
 import { ErrorBoundary } from "./components/ErrorBoundary";
@@ -58,6 +59,7 @@ const App: React.FC = () => {
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<PublicIndex />} />
+            <Route path="/candidature-equipe" element={<TeamApplication />} />
             <Route path="/candidature-libre" element={<FreeProposal />} />
             <Route path="/demandes-modification" element={<ModificationRequests />} />
             <Route path="/controle-attributions" element={<AttributionControl />} />

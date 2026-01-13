@@ -37,13 +37,15 @@ export const ProposalManagement = () => {
   const [showDetails, setShowDetails] = useState(false);
   const [adminNotes, setAdminNotes] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [facultyFilter, setFacultyFilter] = useState("all");
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: proposals = [], isLoading } = useQuery({
-    queryKey: ['assignment-proposals', statusFilter],
+  // Charger toutes les propositions pour obtenir les facultés
+  const { data: allProposals = [] } = useQuery({
+    queryKey: ['assignment-proposals-all'],
     queryFn: async () => {
-      let query = supabase
+      const { data, error } = await supabase
         .from('assignment_proposals')
         .select(`
           *,
@@ -58,15 +60,28 @@ export const ProposalManagement = () => {
         `)
         .order('submission_date', { ascending: false });
 
-      if (statusFilter !== 'all') {
-        query = query.eq('status', statusFilter);
-      }
-
-      const { data, error } = await query;
       if (error) throw error;
       return data as Proposal[];
     }
   });
+
+  // Obtenir les facultés uniques depuis toutes les propositions
+  const faculties = Array.from(
+    new Set(
+      allProposals
+        .map(p => p.course?.faculty)
+        .filter(Boolean) as string[]
+    )
+  ).sort();
+
+  // Filtrer les propositions selon les filtres
+  const proposals = allProposals.filter(p => {
+    const matchesStatus = statusFilter === 'all' || p.status === statusFilter;
+    const matchesFaculty = facultyFilter === 'all' || p.course?.faculty === facultyFilter;
+    return matchesStatus && matchesFaculty;
+  });
+
+  const isLoading = false; // On utilise les données déjà chargées
 
   const updateProposalMutation = useMutation({
     mutationFn: async ({ 
@@ -94,7 +109,26 @@ export const ProposalManagement = () => {
 
       // Si approuvé, créer les attributions et marquer le cours comme non vacant
       if (status === 'approved') {
-        const proposal = proposals.find(p => p.id === id);
+        // Récupérer la proposition complète depuis la base
+        const { data: proposalData, error: fetchError } = await supabase
+          .from('assignment_proposals')
+          .select(`
+            *,
+            course:courses(
+              title,
+              code,
+              faculty,
+              subcategory,
+              volume_total_vol1,
+              volume_total_vol2
+            )
+          `)
+          .eq('id', id)
+          .single();
+        
+        if (fetchError) throw fetchError;
+        const proposal = proposalData as Proposal;
+        
         if (proposal && proposal.proposal_data.assignments) {
           // Supprimer les attributions existantes pour ce cours
           await supabase
@@ -102,15 +136,54 @@ export const ProposalManagement = () => {
             .delete()
             .eq('course_id', proposal.course_id);
 
-          // Créer les nouvelles attributions
-          const assignmentsToInsert = proposal.proposal_data.assignments.map((assignment: any) => ({
-            course_id: proposal.course_id,
-            teacher_id: assignment.teacher_id,
-            is_coordinator: assignment.is_coordinator,
-            vol1_hours: assignment.vol1_hours,
-            vol2_hours: assignment.vol2_hours,
-            validated_by_coord: false
-          }));
+          // Créer ou trouver les enseignants et créer les attributions
+          const assignmentsToInsert = [];
+          
+          for (const assignment of proposal.proposal_data.assignments) {
+            let teacherId = assignment.teacher_id;
+            
+            // Si pas de teacher_id, créer ou trouver l'enseignant par email
+            if (!teacherId && assignment.teacher_email) {
+              // Chercher l'enseignant par email
+              const { data: existingTeacher } = await supabase
+                .from('teachers')
+                .select('id')
+                .eq('email', assignment.teacher_email)
+                .single();
+              
+              if (existingTeacher) {
+                teacherId = existingTeacher.id;
+              } else {
+                // Créer un nouvel enseignant
+                const [firstName, ...lastNameParts] = (assignment.teacher_name || '').split(' ');
+                const lastName = lastNameParts.join(' ') || '';
+                
+                const { data: newTeacher, error: teacherError } = await supabase
+                  .from('teachers')
+                  .insert([{
+                    first_name: firstName || '',
+                    last_name: lastName || '',
+                    email: assignment.teacher_email
+                  }])
+                  .select('id')
+                  .single();
+                
+                if (teacherError) throw teacherError;
+                teacherId = newTeacher.id;
+              }
+            }
+            
+            if (teacherId) {
+              assignmentsToInsert.push({
+                course_id: proposal.course_id,
+                teacher_id: teacherId,
+                is_coordinator: assignment.is_coordinator || false,
+                vol1_hours: assignment.vol1_hours || assignment.vol1 || 0,
+                vol2_hours: assignment.vol2_hours || assignment.vol2 || 0,
+                validated_by_coord: false
+              });
+            }
+          }
 
           if (assignmentsToInsert.length > 0) {
             const { error: assignmentError } = await supabase
@@ -211,19 +284,46 @@ export const ProposalManagement = () => {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold">Gestion des Propositions d'Attribution</h2>
-        
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-48">
-            <SelectValue placeholder="Filtrer par statut" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Tous les statuts</SelectItem>
-            <SelectItem value="pending">En attente</SelectItem>
-            <SelectItem value="approved">Approuvées</SelectItem>
-            <SelectItem value="rejected">Rejetées</SelectItem>
-          </SelectContent>
-        </Select>
+        <h2 className="text-2xl font-bold">Gestion des Candidatures en Équipe</h2>
+      </div>
+
+      {/* Filtres */}
+      <div className="flex gap-4 items-center">
+        <div className="flex-1">
+          <Label>Filtrer par statut</Label>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-48">
+              <SelectValue placeholder="Tous les statuts" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tous les statuts</SelectItem>
+              <SelectItem value="pending">En attente</SelectItem>
+              <SelectItem value="approved">Approuvées</SelectItem>
+              <SelectItem value="rejected">Rejetées</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex-1">
+          <Label>Filtrer par faculté</Label>
+          <Select value={facultyFilter} onValueChange={setFacultyFilter}>
+            <SelectTrigger className="w-48">
+              <SelectValue placeholder="Toutes les facultés" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Toutes les facultés</SelectItem>
+              {faculties.map(faculty => (
+                <SelectItem key={faculty} value={faculty}>
+                  {faculty}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="pt-6">
+          <Badge variant="outline" className="text-sm">
+            {proposals.length} candidature(s)
+          </Badge>
+        </div>
       </div>
 
       <div className="grid gap-4">

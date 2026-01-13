@@ -24,6 +24,7 @@ import {
 import { CentralizedCourseManagement } from "./CentralizedCourseManagement";
 import { ComprehensiveCourseManagement } from "./ComprehensiveCourseManagement";
 import { IntelligentImportPanel } from "./IntelligentImportPanel";
+import { ExcelCourseImportDialog } from "./ExcelCourseImportDialog";
 import { AdminTestPanel } from "./AdminTestPanel";
 
 export const UnifiedCourseManagement: React.FC = () => {
@@ -81,6 +82,7 @@ export const UnifiedCourseManagement: React.FC = () => {
               </p>
             </div>
             <div className="flex items-center gap-2">
+              <ExcelCourseImportDialog />
               <Button variant="outline" size="sm">
                 <RefreshCw className="h-4 w-4 mr-2" />
                 Actualiser

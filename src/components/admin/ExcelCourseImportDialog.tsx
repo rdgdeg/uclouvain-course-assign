@@ -434,7 +434,7 @@ export const ExcelCourseImportDialog: React.FC = () => {
             volume_total_vol1: courseData.volume_total_vol1 || 0,
             volume_total_vol2: courseData.volume_total_vol2 || 0,
             vacant: courseData.vacant,
-            academic_year: '2024-2025'
+            academic_year: '2026-2027'
           };
 
           let existingCourseId: number | null = null;

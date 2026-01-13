@@ -83,7 +83,7 @@ const CourseVacancy = () => {
             />
           </div>
           <p className="text-muted-foreground mb-6">
-            Année académique 2024-2025 • Proposez votre candidature ou constituez une équipe
+            Année académique 2026-2027 • Proposez votre candidature ou constituez une équipe
           </p>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">

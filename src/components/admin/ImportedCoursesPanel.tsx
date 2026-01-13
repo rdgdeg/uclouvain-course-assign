@@ -433,7 +433,7 @@ export const ImportedCoursesPanel: React.FC = () => {
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                           <div className="space-y-1">
                             <div className="font-medium text-gray-900">Année académique</div>
-                            <div className="text-gray-600">{course.academic_year || '2024-2025'}</div>
+                            <div className="text-gray-600">{course.academic_year || '2026-2027'}</div>
                           </div>
                           {course.faculty && (
                             <div className="space-y-1">

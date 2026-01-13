@@ -38,7 +38,7 @@ const PublicIndex = () => {
           </p>
           <div className="flex items-center justify-center gap-3 mt-6">
             <Calendar className="h-5 w-5 text-muted-foreground" />
-            <span className="text-lg text-muted-foreground">Année académique 2024-2025</span>
+            <span className="text-lg text-muted-foreground">Année académique 2026-2027</span>
             <Badge variant="default" className="ml-2">
               <Star className="h-3 w-3 mr-1" />
               Actif

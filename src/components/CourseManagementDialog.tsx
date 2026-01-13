@@ -34,7 +34,7 @@ export const CourseManagementDialog: React.FC<CourseManagementDialogProps> = ({
     code: course?.code || '',
     faculty: course?.faculty || '',
     subcategory: course?.subcategory || '',
-    academic_year: course?.academic_year || '2024-2025',
+    academic_year: course?.academic_year || '2026-2027',
     start_date: course?.start_date || '',
     duration_weeks: course?.duration_weeks || '',
     volume_total_vol1: course?.volume_total_vol1 || '',

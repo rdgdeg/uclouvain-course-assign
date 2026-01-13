@@ -439,7 +439,7 @@ export const AttributionImportDialog: React.FC<{
                 faculty: firstAttribution.dpt_charge,
                 subcategory: firstAttribution.type,
                 vacant: firstAttribution.etat_vac === 'Vacant',
-                academic_year: '2024-2025'
+                academic_year: '2026-2027'
               })
               .select('id')
               .single();

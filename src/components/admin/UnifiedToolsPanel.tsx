@@ -152,7 +152,7 @@ const SystemSettingsPanel: React.FC = () => {
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
                     <span>Année académique :</span>
-                    <span className="font-medium">2024-2025</span>
+                    <span className="font-medium">2026-2027</span>
                   </div>
                   <div className="flex justify-between">
                     <span>Environnement :</span>

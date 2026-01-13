@@ -152,7 +152,7 @@ const AttributionControl = () => {
               <GraduationCap className="h-8 w-8" />
               Contrôle des Attributions
             </h1>
-            <p className="text-muted-foreground">Année académique 2024-2025 • Consultez et demandez des modifications</p>
+            <p className="text-muted-foreground">Année académique 2026-2027 • Consultez et demandez des modifications</p>
           </div>
         </div>
 

@@ -90,7 +90,7 @@ export const IntelligentImportPanel: React.FC = () => {
       setDefaultStatus: 'active',
       assignFaculty: true,
       createMissingFaculties: false,
-      setDefaultYear: '2024-2025',
+      setDefaultYear: '2026-2027',
     },
   });
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
@@ -598,7 +598,7 @@ export const IntelligentImportPanel: React.FC = () => {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="2024-2025">2024-2025</SelectItem>
+                          <SelectItem value="2026-2027">2026-2027</SelectItem>
                           <SelectItem value="2025-2026">2025-2026</SelectItem>
                           <SelectItem value="2023-2024">2023-2024</SelectItem>
                         </SelectContent>

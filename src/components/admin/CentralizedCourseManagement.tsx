@@ -78,7 +78,7 @@ export const CentralizedCourseManagement: React.FC = () => {
     faculty: "all",
     school: "all",
     status: "all",
-    academicYear: "2024-2025",
+    academicYear: "2026-2027",
     search: ""
   });
   

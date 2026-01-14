@@ -41,6 +41,7 @@ interface ColumnMapping {
   // Enseignant
   nom?: string;
   prenom?: string;
+  enseignant?: string; // Colonne "Enseignant" (peut contenir "Non Attr.")
   matricule?: string;
   date_naissance?: string;
   email?: string;
@@ -50,6 +51,16 @@ interface ColumnMapping {
   duree?: string;
   vol1?: string;
   vol2_enseignant?: string;
+  // Colonnes supplémentaires optionnelles
+  mode_paiement_vol1?: string;
+  mode_paiement_vol2?: string;
+  poste?: string;
+  remarque?: string;
+  rem_spec?: string;
+  procedure_attribution?: string;
+  remarque_candidature?: string;
+  id_equipe?: string;
+  candidature_en_ligne?: string;
 }
 
 interface ParsedCourse {
@@ -183,8 +194,18 @@ export const ExcelCourseImportDialog: React.FC = () => {
             else if (headerLower.includes('supplée') || headerLower.includes('supplee')) autoMapping.supplee = header;
             else if (headerLower.includes('début') || headerLower.includes('debut')) autoMapping.debut = header;
             else if (headerLower.includes('durée') || headerLower.includes('duree')) autoMapping.duree = header;
-            else if (headerLower.includes('vol1.') && !headerLower.includes('2026') && !headerLower.includes('total')) autoMapping.vol1 = header;
-            else if (headerLower.includes('vol2.') && !headerLower.includes('total')) autoMapping.vol2_enseignant = header;
+            else if (headerLower.includes('vol1. enseignant') || (headerLower.includes('vol1') && headerLower.includes('enseignant'))) autoMapping.vol1 = header;
+            else if (headerLower.includes('vol2. enseignant') || (headerLower.includes('vol2') && headerLower.includes('enseignant'))) autoMapping.vol2_enseignant = header;
+            else if (headerLower === 'enseignant' || (headerLower.includes('enseignant') && !headerLower.includes('vol'))) autoMapping.enseignant = header;
+            else if (headerLower.includes('mode paiement vol1')) autoMapping.mode_paiement_vol1 = header;
+            else if (headerLower.includes('mode paiement vol2')) autoMapping.mode_paiement_vol2 = header;
+            else if (headerLower === 'poste') autoMapping.poste = header;
+            else if (headerLower === 'remarque' && !headerLower.includes('candidature')) autoMapping.remarque = header;
+            else if (headerLower.includes('rem. spec') || headerLower.includes('rem spec')) autoMapping.rem_spec = header;
+            else if (headerLower.includes('procédure') || headerLower.includes('procedure')) autoMapping.procedure_attribution = header;
+            else if (headerLower.includes('remarque candidature')) autoMapping.remarque_candidature = header;
+            else if (headerLower.includes('id équipe') || headerLower.includes('id equipe')) autoMapping.id_equipe = header;
+            else if (headerLower.includes('candidature en ligne')) autoMapping.candidature_en_ligne = header;
           });
           
           setColumnMapping(autoMapping);
@@ -289,8 +310,10 @@ export const ExcelCourseImportDialog: React.FC = () => {
               // Vérifier si c'est une attribution d'enseignant ou une partie vacante
               const nom = row[mapping.nom || ''] || '';
               const prenom = row[mapping.prenom || ''] || '';
+              const enseignant = row[mapping.enseignant || ''] || '';
               const isNonAttr = nom === 'Non Attr.' || nom === 'Non Attr' || nom === 'Non attr.' || 
-                               prenom === 'Non Attr.' || prenom === 'Non Attr' || prenom === 'Non attr.';
+                               prenom === 'Non Attr.' || prenom === 'Non Attr' || prenom === 'Non attr.' ||
+                               enseignant === 'Non Attr.' || enseignant === 'Non Attr' || enseignant === 'Non attr.';
 
               if (isNonAttr) {
                 // Partie vacante
@@ -301,11 +324,11 @@ export const ExcelCourseImportDialog: React.FC = () => {
                   cause_decision: row[mapping.cause_decision || ''] || ''
                 };
                 course.vacant_parts.push(vacantPart);
-              } else if (nom || prenom || row[mapping.email || '']) {
+              } else if (nom || prenom || enseignant || row[mapping.email || '']) {
                 // Enseignant
                 const teacher: ParsedTeacher = {
-                  nom: nom,
-                  prenom: prenom,
+                  nom: nom || enseignant.split(' ').slice(1).join(' ') || '',
+                  prenom: prenom || enseignant.split(' ')[0] || '',
                   matricule: row[mapping.matricule || ''] || '',
                   date_naissance: row[mapping.date_naissance || ''] ? 
                     (typeof row[mapping.date_naissance || ''] === 'number' 
@@ -598,10 +621,20 @@ export const ExcelCourseImportDialog: React.FC = () => {
     { key: 'type', label: 'Type' },
     { key: 'nom', label: 'Nom' },
     { key: 'prenom', label: 'Prénom' },
+    { key: 'enseignant', label: 'Enseignant' },
     { key: 'email', label: 'Email UCL' },
     { key: 'fonction', label: 'Fonction' },
-    { key: 'vol1', label: 'Vol1. (enseignant)' },
-    { key: 'vol2_enseignant', label: 'Vol2. (enseignant)' }
+    { key: 'vol1', label: 'Vol1. enseignant' },
+    { key: 'vol2_enseignant', label: 'Vol2. enseignant' },
+    { key: 'mode_paiement_vol1', label: 'Mode paiement vol1' },
+    { key: 'mode_paiement_vol2', label: 'Mode paiement vol2' },
+    { key: 'poste', label: 'Poste' },
+    { key: 'remarque', label: 'Remarque' },
+    { key: 'rem_spec', label: 'Rem. spec.' },
+    { key: 'procedure_attribution', label: 'Procédure d\'attribution' },
+    { key: 'remarque_candidature', label: 'Remarque candidature' },
+    { key: 'id_equipe', label: 'Id équipe' },
+    { key: 'candidature_en_ligne', label: 'Candidature en ligne' }
   ];
 
   return (

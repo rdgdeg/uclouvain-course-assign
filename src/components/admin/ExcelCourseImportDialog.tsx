@@ -95,6 +95,7 @@ interface ParsedCourse {
 interface ParsedTeacher {
   nom: string;
   prenom: string;
+  nom_complet?: string; // Nom complet depuis colonne "Enseignant"
   matricule?: string;
   date_naissance?: string;
   email: string;
@@ -102,10 +103,11 @@ interface ParsedTeacher {
   supplee?: boolean;
   debut?: string;
   duree?: string;
-  cause_vac?: string;
-  cause_decision?: string;
   vol1: number;
   vol2: number;
+  mode_paiement_vol1?: string;
+  mode_paiement_vol2?: string;
+  poste?: string;
   is_coordinator?: boolean;
 }
 
@@ -266,15 +268,12 @@ export const ExcelCourseImportDialog: React.FC = () => {
                                 etatVac === 'vacant' || 
                                 etatVac === 'VACANT';
 
-                const vol1_2026 = parseFloat(row[mapping.vol1_2026 || '']) || 0;
-                const coef1 = parseFloat(row[mapping.coef1 || '']) || 1;
-                const vol2_raw = parseFloat(row[mapping.vol2 || '']) || 0;
-                const coef2 = parseFloat(row[mapping.coef2 || '']) || 1;
-                
-                // Volume total = Vol1. 2026 * Coef1 (ou utiliser Volume 1 total si présent)
-                const volume1_total = parseFloat(row[mapping.volume1_total || '']) || (vol1_2026 * coef1);
-                const volume2_total = parseFloat(row[mapping.volume2_total || '']) || (vol2_raw * coef2);
+                // Utiliser seulement Volume 1 total et Volume 2 total (ignorer Vol1 2026 et Vol2)
+                const volume1_total = parseFloat(row[mapping.volume1_total || '']) || 0;
+                const volume2_total = parseFloat(row[mapping.volume2_total || '']) || 0;
 
+                // Le volume total est répété à chaque ligne mais ne doit être pris qu'une seule fois
+                // On le prend seulement lors de la première création du cours
                 coursesMap.set(courseKey, {
                   code: courseCode,
                   sigle: row[mapping.sigle || ''] || '',
@@ -284,16 +283,12 @@ export const ExcelCourseImportDialog: React.FC = () => {
                   title_full: row[mapping.intit_complet || ''] || '',
                   inactive: row[mapping.inactif || ''] === 'Oui' || row[mapping.inactif || ''] === true || row[mapping.inactif || ''] === 1,
                   vacant: isVacant,
-                  vacancy_reason: row[mapping.cause_vac || ''] || '',
+                  vacancy_reason: row[mapping.cause_vac || ''] || '', // Cause de vacance du cours seulement (première occurrence)
                   vacancy_decision: row[mapping.cause_decision || ''] || '',
                   vacancy_declaration: row[mapping.decl_vac || ''] || '',
                   course_proposal: row[mapping.cours_propo || ''] || '',
-                  vol1_2026: vol1_2026,
-                  vol2: vol2_raw,
-                  coef1: coef1,
-                  coef2: coef2,
-                  volume_total_vol1: volume1_total,
-                  volume_total_vol2: volume2_total,
+                  volume_total_vol1: volume1_total, // Pris une seule fois lors de la création
+                  volume_total_vol2: volume2_total, // Pris une seule fois lors de la création
                   periodicity: row[mapping.periodicite || ''] || '',
                   dept_charge: row[mapping.dpt_charge || ''] || '',
                   dept_attribution: row[mapping.dpt_attribution || ''] || '',
@@ -308,12 +303,14 @@ export const ExcelCourseImportDialog: React.FC = () => {
               const course = coursesMap.get(courseKey)!;
 
               // Vérifier si c'est une attribution d'enseignant ou une partie vacante
-              const nom = row[mapping.nom || ''] || '';
-              const prenom = row[mapping.prenom || ''] || '';
+              // Utiliser "Enseignant" en priorité (nom complet)
               const enseignant = row[mapping.enseignant || ''] || '';
-              const isNonAttr = nom === 'Non Attr.' || nom === 'Non Attr' || nom === 'Non attr.' || 
-                               prenom === 'Non Attr.' || prenom === 'Non Attr' || prenom === 'Non attr.' ||
-                               enseignant === 'Non Attr.' || enseignant === 'Non Attr' || enseignant === 'Non attr.';
+              const nom = enseignant ? enseignant.split(' ').slice(1).join(' ') : (row[mapping.nom || ''] || '');
+              const prenom = enseignant ? enseignant.split(' ')[0] : (row[mapping.prenom || ''] || '');
+              
+              const isNonAttr = enseignant === 'Non Attr.' || enseignant === 'Non Attr' || enseignant === 'Non attr.' ||
+                               nom === 'Non Attr.' || nom === 'Non Attr' || nom === 'Non attr.' || 
+                               prenom === 'Non Attr.' || prenom === 'Non Attr' || prenom === 'Non attr.';
 
               if (isNonAttr) {
                 // Partie vacante
@@ -325,10 +322,11 @@ export const ExcelCourseImportDialog: React.FC = () => {
                 };
                 course.vacant_parts.push(vacantPart);
               } else if (nom || prenom || enseignant || row[mapping.email || '']) {
-                // Enseignant
+                // Enseignant - utiliser "Enseignant" en priorité
                 const teacher: ParsedTeacher = {
-                  nom: nom || enseignant.split(' ').slice(1).join(' ') || '',
-                  prenom: prenom || enseignant.split(' ')[0] || '',
+                  nom: nom,
+                  prenom: prenom,
+                  nom_complet: enseignant || `${prenom} ${nom}`.trim(),
                   matricule: row[mapping.matricule || ''] || '',
                   date_naissance: row[mapping.date_naissance || ''] ? 
                     (typeof row[mapping.date_naissance || ''] === 'number' 
@@ -361,10 +359,11 @@ export const ExcelCourseImportDialog: React.FC = () => {
                       : row[mapping.debut || ''].toString()) 
                     : '',
                   duree: row[mapping.duree || ''] || '',
-                  cause_vac: row[mapping.cause_vac || ''] || '',
-                  cause_decision: row[mapping.cause_decision || ''] || '',
                   vol1: parseFloat(row[mapping.vol1 || '']) || 0,
                   vol2: parseFloat(row[mapping.vol2_enseignant || '']) || 0,
+                  mode_paiement_vol1: row[mapping.mode_paiement_vol1 || ''] || '',
+                  mode_paiement_vol2: row[mapping.mode_paiement_vol2 || ''] || '',
+                  poste: row[mapping.poste || ''] || '',
                   is_coordinator: false
                 };
 
@@ -523,6 +522,8 @@ export const ExcelCourseImportDialog: React.FC = () => {
               }
 
               if (!teacherId) {
+                // Utiliser le nom complet depuis "Enseignant" si disponible
+                const fullName = teacherData.nom_complet || `${teacherData.prenom} ${teacherData.nom}`.trim();
                 const { data: newTeacher, error: teacherError } = await supabase
                   .from('teachers')
                   .insert([{
@@ -552,8 +553,12 @@ export const ExcelCourseImportDialog: React.FC = () => {
                     vol1_hours: teacherData.vol1 || 0,
                     vol2_hours: teacherData.vol2 || 0,
                     is_coordinator: teacherData.is_coordinator || false,
-                    validated_by_coord: false
-                  }]);
+                    validated_by_coord: false,
+                    // Ces champs seront disponibles après migration
+                    mode_paiement_vol1: teacherData.mode_paiement_vol1 || null,
+                    mode_paiement_vol2: teacherData.mode_paiement_vol2 || null,
+                    poste: teacherData.poste || null
+                  } as any]);
 
                 if (assignmentError) {
                   errors.push(`Erreur attribution ${teacherData.nom} ${teacherData.prenom}: ${assignmentError.message}`);

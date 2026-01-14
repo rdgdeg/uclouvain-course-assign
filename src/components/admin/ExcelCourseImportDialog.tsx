@@ -701,15 +701,15 @@ export const ExcelCourseImportDialog: React.FC = () => {
                               )}
                             </Label>
                             <Select
-                              value={columnMapping[col.key as keyof ColumnMapping] || ''}
-                              onValueChange={(value) => setColumnMapping({ ...columnMapping, [col.key]: value })}
+                              value={columnMapping[col.key as keyof ColumnMapping] || '__none__'}
+                              onValueChange={(value) => setColumnMapping({ ...columnMapping, [col.key]: value === '__none__' ? undefined : value })}
                             >
                               <SelectTrigger>
                                 <SelectValue placeholder="Sélectionner une colonne" />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="">-- Aucune --</SelectItem>
-                                {excelHeaders.map(header => (
+                                <SelectItem value="__none__">-- Aucune --</SelectItem>
+                                {excelHeaders.filter(header => header && header.trim() !== '').map(header => (
                                   <SelectItem key={header} value={header}>{header}</SelectItem>
                                 ))}
                               </SelectContent>
@@ -726,15 +726,15 @@ export const ExcelCourseImportDialog: React.FC = () => {
                           <div key={col.key}>
                             <Label className="text-sm">{col.label}</Label>
                             <Select
-                              value={columnMapping[col.key as keyof ColumnMapping] || ''}
-                              onValueChange={(value) => setColumnMapping({ ...columnMapping, [col.key]: value })}
+                              value={columnMapping[col.key as keyof ColumnMapping] || '__none__'}
+                              onValueChange={(value) => setColumnMapping({ ...columnMapping, [col.key]: value === '__none__' ? undefined : value })}
                             >
                               <SelectTrigger>
                                 <SelectValue placeholder="Sélectionner une colonne" />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="">-- Aucune --</SelectItem>
-                                {excelHeaders.map(header => (
+                                <SelectItem value="__none__">-- Aucune --</SelectItem>
+                                {excelHeaders.filter(header => header && header.trim() !== '').map(header => (
                                   <SelectItem key={header} value={header}>{header}</SelectItem>
                                 ))}
                               </SelectContent>

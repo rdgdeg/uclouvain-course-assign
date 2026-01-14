@@ -10,6 +10,8 @@ import * as XLSX from 'xlsx';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface AttributionData {
   cours: string;
@@ -108,6 +110,8 @@ export const AttributionImportDialog: React.FC<{
   const [columnMapping, setColumnMapping] = useState<Record<keyof AttributionData, string>>({} as Record<keyof AttributionData, string>);
   const [showMapping, setShowMapping] = useState(false);
   const [previewData, setPreviewData] = useState<any[]>([]);
+  const [overwriteExisting, setOverwriteExisting] = useState(false);
+  const [importProgress, setImportProgress] = useState(0);
   const { toast } = useToast();
 
   // Fonction pour créer un mapping automatique basé sur la similarité des noms
@@ -360,6 +364,7 @@ export const AttributionImportDialog: React.FC<{
     }
 
     setImporting(true);
+     setImportProgress(0);
     const result: ImportResult = {
       success: 0,
       errors: [],
@@ -379,6 +384,35 @@ export const AttributionImportDialog: React.FC<{
         return;
       }
 
+      // Si demandé, écraser toutes les attributions existantes avant l'import
+      if (overwriteExisting) {
+        const { data: existingAttributions, error: fetchError } = await supabase
+          .from('hour_attributions')
+          .select('id');
+
+        if (fetchError) {
+          result.errors.push(`Impossible de récupérer les attributions existantes : ${fetchError.message}`);
+        } else if (existingAttributions && existingAttributions.length > 0) {
+          const attributionIds = existingAttributions.map((a: { id: string }) => a.id);
+          const { error: deleteError } = await supabase
+            .from('hour_attributions')
+            .delete()
+            .in('id', attributionIds);
+
+          if (deleteError) {
+            result.errors.push(`Impossible de supprimer les attributions existantes : ${deleteError.message}`);
+          } else {
+            toast({
+              title: "Attributions écrasées",
+              description: `${existingAttributions.length} attribution(s) existante(s) supprimée(s) avant l'import.`,
+            });
+          }
+        }
+
+        // Avancer légèrement la progression après la suppression
+        setImportProgress(5);
+      }
+
       // Grouper par cours
       const courseGroups = new Map<string, AttributionData[]>();
       attributions.forEach(attr => {
@@ -389,9 +423,16 @@ export const AttributionImportDialog: React.FC<{
         courseGroups.get(courseCode)!.push(attr);
       });
 
+      const totalCourses = courseGroups.size;
+      let processedCourses = 0;
+
       // Traiter chaque cours
       for (const [courseCode, courseAttributions] of courseGroups) {
         try {
+          processedCourses++;
+          const progress = Math.round((processedCourses / Math.max(totalCourses, 1)) * 100);
+          setImportProgress(progress);
+
           const firstAttribution = courseAttributions[0];
           
           // 1. Créer/mettre à jour le cours
@@ -537,6 +578,7 @@ export const AttributionImportDialog: React.FC<{
       setImportResult(result);
       
       console.log('Import completed with result:', result);
+      setImportProgress(100);
       
       if (result.success > 0) {
         toast({
@@ -573,6 +615,8 @@ export const AttributionImportDialog: React.FC<{
     setColumnMapping({} as Record<keyof AttributionData, string>);
     setShowMapping(false);
     setPreviewData([]);
+    setOverwriteExisting(false);
+    setImportProgress(0);
   };
 
   const handleClose = () => {
@@ -778,6 +822,34 @@ export const AttributionImportDialog: React.FC<{
                                 </tbody>
                               </table>
                             </div>
+                          </div>
+                        )}
+
+                        <div className="space-y-2 border rounded-md p-3">
+                          <Label className="flex items-start gap-2 text-sm">
+                            <Checkbox
+                              id="overwrite-existing-attributions"
+                              checked={overwriteExisting}
+                              onCheckedChange={(checked) => setOverwriteExisting(!!checked)}
+                              className="mt-1"
+                            />
+                            <div>
+                              <span className="font-medium">Écraser les attributions existantes</span>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                Si coché, toutes les attributions existantes seront supprimées avant l'import.
+                                Les cours seront mis à jour ou créés en fonction des données du fichier.
+                              </p>
+                            </div>
+                          </Label>
+                        </div>
+
+                        {importing && (
+                          <div className="space-y-2">
+                            <div className="flex justify-between text-xs text-muted-foreground">
+                              <span>Progression de l'import</span>
+                              <span className="font-medium">{importProgress}%</span>
+                            </div>
+                            <Progress value={importProgress} />
                           </div>
                         )}
                       </CardContent>

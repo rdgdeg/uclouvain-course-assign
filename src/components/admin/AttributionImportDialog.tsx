@@ -725,11 +725,11 @@ export const AttributionImportDialog: React.FC<{
                                 )}
                               </div>
                               <Select
-                                value={columnMapping[col.key] || ''}
+                                value={columnMapping[col.key] || '__none__'}
                                 onValueChange={(value) => {
                                   setColumnMapping(prev => ({
                                     ...prev,
-                                    [col.key]: value
+                                    [col.key]: value === '__none__' ? '' : value
                                   }));
                                 }}
                               >
@@ -737,8 +737,10 @@ export const AttributionImportDialog: React.FC<{
                                   <SelectValue placeholder="Sélectionner une colonne" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  <SelectItem value="">-- Aucune --</SelectItem>
-                                  {fileHeaders.map((header) => (
+                                  <SelectItem value="__none__">-- Aucune --</SelectItem>
+                                  {fileHeaders
+                                    .filter((header) => header && header.trim() !== '')
+                                    .map((header) => (
                                     <SelectItem key={header} value={header}>
                                       {header}
                                     </SelectItem>

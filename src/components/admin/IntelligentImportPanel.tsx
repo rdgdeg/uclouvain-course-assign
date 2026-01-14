@@ -494,18 +494,23 @@ export const IntelligentImportPanel: React.FC = () => {
                         {config.label} {config.required && <span className="text-red-500">*</span>}
                       </Label>
                       <Select
-                        value={importConfig.columnMapping[key] || ''}
+                        value={importConfig.columnMapping[key] || '__none__'}
                         onValueChange={(value) => setImportConfig(prev => ({
                           ...prev,
-                          columnMapping: { ...prev.columnMapping, [key]: value }
+                          columnMapping: { 
+                            ...prev.columnMapping, 
+                            [key]: value === '__none__' ? '' : value 
+                          }
                         }))}
                       >
                         <SelectTrigger>
                           <SelectValue placeholder="Sélectionner une colonne" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">Aucune</SelectItem>
-                          {headers.map(header => (
+                          <SelectItem value="__none__">Aucune</SelectItem>
+                          {headers
+                            .filter(header => header && header.trim() !== '')
+                            .map(header => (
                             <SelectItem key={header} value={header}>
                               {header}
                             </SelectItem>

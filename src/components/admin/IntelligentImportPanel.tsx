@@ -46,6 +46,7 @@ interface ImportConfig {
     createMissingFaculties: boolean;
     setDefaultYear: string;
   };
+  overwriteExisting: boolean;
 }
 
 interface ImportResult {
@@ -92,9 +93,11 @@ export const IntelligentImportPanel: React.FC = () => {
       createMissingFaculties: false,
       setDefaultYear: '2026-2027',
     },
+    overwriteExisting: false,
   });
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [importProgress, setImportProgress] = useState(0);
   const [currentStep, setCurrentStep] = useState<'upload' | 'configure' | 'validate' | 'import'>('upload');
 
   const { toast } = useToast();
@@ -260,6 +263,7 @@ export const IntelligentImportPanel: React.FC = () => {
   const importMutation = useMutation({
     mutationFn: async () => {
       setIsProcessing(true);
+      setImportProgress(0);
       setCurrentStep('import');
 
       const { errors, warnings } = validateData();
@@ -272,7 +276,102 @@ export const IntelligentImportPanel: React.FC = () => {
         !errors.some(e => e.row === index + 2)
       );
 
-      for (const row of validRows) {
+      const totalRows = validRows.length;
+
+      // Si l'option d'écrasement est activée pour les cours, supprimer tous les cours existants
+      if (activeTab === 'courses' && importConfig.overwriteExisting) {
+        setImportProgress(5);
+        // Récupérer tous les IDs des cours existants
+        const { data: existingCourses, error: fetchError } = await supabase
+          .from('courses')
+          .select('id');
+        
+        if (fetchError) {
+          console.error('Erreur lors de la récupération des cours existants:', fetchError);
+          toast({
+            title: "Avertissement",
+            description: "Impossible de récupérer les cours existants. L'import continuera avec la mise à jour.",
+            variant: "destructive",
+          });
+        } else if (existingCourses && existingCourses.length > 0) {
+          // Supprimer tous les cours par batch
+          const courseIds = existingCourses.map(c => c.id);
+          const { error: deleteError } = await supabase
+            .from('courses')
+            .delete()
+            .in('id', courseIds);
+          
+          if (deleteError) {
+            console.error('Erreur lors de la suppression des cours existants:', deleteError);
+            toast({
+              title: "Avertissement",
+              description: "Impossible de supprimer tous les cours existants. L'import continuera avec la mise à jour.",
+              variant: "destructive",
+            });
+          } else {
+            toast({
+              title: "Données écrasées",
+              description: `${existingCourses.length} cours existant(s) supprimé(s). Import en cours...`,
+            });
+          }
+        } else {
+          toast({
+            title: "Prêt pour l'import",
+            description: "Aucun cours existant à supprimer. Import en cours...",
+          });
+        }
+      }
+
+      // Si l'option d'écrasement est activée pour les enseignants, supprimer tous les enseignants existants
+      if (activeTab === 'teachers' && importConfig.overwriteExisting) {
+        setImportProgress(5);
+        // Récupérer tous les IDs des enseignants existants
+        const { data: existingTeachers, error: fetchError } = await supabase
+          .from('teachers')
+          .select('id');
+        
+        if (fetchError) {
+          console.error('Erreur lors de la récupération des enseignants existants:', fetchError);
+          toast({
+            title: "Avertissement",
+            description: "Impossible de récupérer les enseignants existants. L'import continuera avec la mise à jour.",
+            variant: "destructive",
+          });
+        } else if (existingTeachers && existingTeachers.length > 0) {
+          // Supprimer tous les enseignants par batch
+          const teacherIds = existingTeachers.map(t => t.id);
+          const { error: deleteError } = await supabase
+            .from('teachers')
+            .delete()
+            .in('id', teacherIds);
+          
+          if (deleteError) {
+            console.error('Erreur lors de la suppression des enseignants existants:', deleteError);
+            toast({
+              title: "Avertissement",
+              description: "Impossible de supprimer tous les enseignants existants. L'import continuera avec la mise à jour.",
+              variant: "destructive",
+            });
+          } else {
+            toast({
+              title: "Données écrasées",
+              description: `${existingTeachers.length} enseignant(s) existant(s) supprimé(s). Import en cours...`,
+            });
+          }
+        } else {
+          toast({
+            title: "Prêt pour l'import",
+            description: "Aucun enseignant existant à supprimer. Import en cours...",
+          });
+        }
+      }
+
+      // Traiter chaque ligne avec progression
+      for (let i = 0; i < validRows.length; i++) {
+        const row = validRows[i];
+        const progress = Math.round(((i + 1) / totalRows) * 90) + 10; // 10-100% (10% pour la suppression)
+        setImportProgress(progress);
+
         try {
           if (activeTab === 'teachers') {
             const teacherData = {
@@ -282,26 +381,34 @@ export const IntelligentImportPanel: React.FC = () => {
               status: row[importConfig.columnMapping.status || ''] || importConfig.autoActions.setDefaultStatus,
             };
 
-            // Vérifier si l'enseignant existe déjà
-            const { data: existing } = await supabase
-              .from('teachers')
-              .select('id')
-              .eq('email', teacherData.email)
-              .single();
-
-            if (existing) {
-              // Mettre à jour
-              await supabase
-                .from('teachers')
-                .update(teacherData)
-                .eq('id', existing.id);
-              updated++;
-            } else {
-              // Insérer
+            if (importConfig.overwriteExisting) {
+              // Si écrasement activé, toujours insérer (les anciens ont été supprimés)
               await supabase
                 .from('teachers')
                 .insert([teacherData]);
               inserted++;
+            } else {
+              // Vérifier si l'enseignant existe déjà
+              const { data: existing } = await supabase
+                .from('teachers')
+                .select('id')
+                .eq('email', teacherData.email)
+                .single();
+
+              if (existing) {
+                // Mettre à jour
+                await supabase
+                  .from('teachers')
+                  .update(teacherData)
+                  .eq('id', existing.id);
+                updated++;
+              } else {
+                // Insérer
+                await supabase
+                  .from('teachers')
+                  .insert([teacherData]);
+                inserted++;
+              }
             }
           } else {
             const courseData = {
@@ -320,27 +427,35 @@ export const IntelligentImportPanel: React.FC = () => {
                       Number(row[importConfig.columnMapping.volume_total_vol2 || '0']) === 0),
             };
 
-            // Vérifier si le cours existe déjà
-            const { data: existing } = await supabase
-              .from('courses')
-              .select('id')
-              .eq('code', courseData.code)
-              .eq('academic_year', courseData.academic_year)
-              .single();
-
-            if (existing) {
-              // Mettre à jour
-              await supabase
-                .from('courses')
-                .update(courseData)
-                .eq('id', existing.id);
-              updated++;
-            } else {
-              // Insérer
+            if (importConfig.overwriteExisting) {
+              // Si écrasement activé, toujours insérer (les anciens ont été supprimés)
               await supabase
                 .from('courses')
                 .insert([courseData]);
               inserted++;
+            } else {
+              // Vérifier si le cours existe déjà
+              const { data: existing } = await supabase
+                .from('courses')
+                .select('id')
+                .eq('code', courseData.code)
+                .eq('academic_year', courseData.academic_year)
+                .single();
+
+              if (existing) {
+                // Mettre à jour
+                await supabase
+                  .from('courses')
+                  .update(courseData)
+                  .eq('id', existing.id);
+                updated++;
+              } else {
+                // Insérer
+                await supabase
+                  .from('courses')
+                  .insert([courseData]);
+                inserted++;
+              }
             }
           }
         } catch (error) {
@@ -348,6 +463,8 @@ export const IntelligentImportPanel: React.FC = () => {
           skipped++;
         }
       }
+
+      setImportProgress(100);
 
       const result: ImportResult = {
         total: csvData.length,
@@ -379,6 +496,7 @@ export const IntelligentImportPanel: React.FC = () => {
     },
     onSettled: () => {
       setIsProcessing(false);
+      setImportProgress(0);
     },
   });
 
@@ -564,6 +682,39 @@ export const IntelligentImportPanel: React.FC = () => {
                 </div>
               </div>
 
+              {/* Option d'écrasement */}
+              <div>
+                <h4 className="font-medium mb-3">Options d'import</h4>
+                <div className="space-y-2">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="overwriteExisting"
+                      checked={importConfig.overwriteExisting}
+                      onCheckedChange={(checked) => setImportConfig(prev => ({
+                        ...prev,
+                        overwriteExisting: checked as boolean
+                      }))}
+                    />
+                    <Label htmlFor="overwriteExisting" className="flex flex-col">
+                      <span className="font-medium">Écraser les données existantes</span>
+                      <span className="text-sm text-muted-foreground">
+                        {activeTab === 'courses' 
+                          ? 'Supprime tous les cours existants avant l\'import'
+                          : 'Supprime tous les enseignants existants avant l\'import'}
+                      </span>
+                    </Label>
+                  </div>
+                  {importConfig.overwriteExisting && (
+                    <Alert variant="destructive">
+                      <AlertTriangle className="h-4 w-4" />
+                      <AlertDescription>
+                        <strong>Attention :</strong> Cette action supprimera toutes les données existantes avant l'import. Cette action est irréversible.
+                      </AlertDescription>
+                    </Alert>
+                  )}
+                </div>
+              </div>
+
               {/* Actions automatiques */}
               <div>
                 <h4 className="font-medium mb-3">Actions automatiques</h4>
@@ -735,10 +886,26 @@ export const IntelligentImportPanel: React.FC = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              <Progress value={isProcessing ? 50 : 100} className="w-full" />
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Progression</span>
+                  <span className="font-medium">{importProgress}%</span>
+                </div>
+                <Progress value={importProgress} className="w-full" />
+              </div>
               <p className="text-center text-sm text-muted-foreground">
-                {isProcessing ? 'Import en cours...' : 'Import terminé'}
+                {isProcessing 
+                  ? `Traitement en cours... ${importProgress}%` 
+                  : 'Import terminé'}
               </p>
+              {importConfig.overwriteExisting && (
+                <Alert>
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertDescription>
+                    Les données existantes sont en cours de suppression...
+                  </AlertDescription>
+                </Alert>
+              )}
             </div>
           </CardContent>
         </Card>

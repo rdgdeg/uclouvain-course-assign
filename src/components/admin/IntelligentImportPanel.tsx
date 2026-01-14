@@ -383,9 +383,13 @@ export const IntelligentImportPanel: React.FC = () => {
 
             if (importConfig.overwriteExisting) {
               // Si écrasement activé, toujours insérer (les anciens ont été supprimés)
-              await supabase
+              const { error: insertError } = await supabase
                 .from('teachers')
                 .insert([teacherData]);
+              
+              if (insertError) {
+                throw insertError;
+              }
               inserted++;
             } else {
               // Vérifier si l'enseignant existe déjà
@@ -397,16 +401,24 @@ export const IntelligentImportPanel: React.FC = () => {
 
               if (existing) {
                 // Mettre à jour
-                await supabase
+                const { error: updateError } = await supabase
                   .from('teachers')
                   .update(teacherData)
                   .eq('id', existing.id);
+                
+                if (updateError) {
+                  throw updateError;
+                }
                 updated++;
               } else {
                 // Insérer
-                await supabase
+                const { error: insertError } = await supabase
                   .from('teachers')
                   .insert([teacherData]);
+                
+                if (insertError) {
+                  throw insertError;
+                }
                 inserted++;
               }
             }
@@ -429,9 +441,13 @@ export const IntelligentImportPanel: React.FC = () => {
 
             if (importConfig.overwriteExisting) {
               // Si écrasement activé, toujours insérer (les anciens ont été supprimés)
-              await supabase
+              const { error: insertError } = await supabase
                 .from('courses')
                 .insert([courseData]);
+              
+              if (insertError) {
+                throw insertError;
+              }
               inserted++;
             } else {
               // Vérifier si le cours existe déjà
@@ -444,16 +460,24 @@ export const IntelligentImportPanel: React.FC = () => {
 
               if (existing) {
                 // Mettre à jour
-                await supabase
+                const { error: updateError } = await supabase
                   .from('courses')
                   .update(courseData)
                   .eq('id', existing.id);
+                
+                if (updateError) {
+                  throw updateError;
+                }
                 updated++;
               } else {
                 // Insérer
-                await supabase
+                const { error: insertError } = await supabase
                   .from('courses')
                   .insert([courseData]);
+                
+                if (insertError) {
+                  throw insertError;
+                }
                 inserted++;
               }
             }

@@ -103,6 +103,10 @@ export const CentralizedCourseManagement: React.FC = () => {
           assignments:course_assignments(
             *,
             teacher:teachers(*)
+          ),
+          hour_attributions(
+            *,
+            teacher:teachers(*)
           )
         `)
         .eq('academic_year', filters.academicYear)
@@ -147,13 +151,48 @@ export const CentralizedCourseManagement: React.FC = () => {
   // Calculer le statut détaillé de chaque cours
   const coursesWithStatus = useMemo(() => {
     return normalizedCourses.map(course => {
+      // Combiner les attributions de course_assignments et hour_attributions
       const assignments = course.assignments || [];
-      const totalVol1 = course.volume_total_vol1 || 0;
-      const totalVol2 = course.volume_total_vol2 || 0;
-      const assignedVol1 = assignments.reduce((sum, a) => sum + (a.vol1_hours || 0), 0);
-      const assignedVol2 = assignments.reduce((sum, a) => sum + (a.vol2_hours || 0), 0);
+      const hourAttributions = course.hour_attributions || [];
+      
+      // Utiliser les volumes totaux du cours (vol1_total/vol2_total ou volume_total_vol1/volume_total_vol2)
+      const totalVol1 = course.vol1_total || course.volume_total_vol1 || 0;
+      const totalVol2 = course.vol2_total || course.volume_total_vol2 || 0;
+      
+      // Calculer les volumes attribués depuis hour_attributions (priorité) ou course_assignments
+      const assignedVol1FromHour = hourAttributions.reduce((sum, a) => sum + (Number(a.vol1_hours) || 0), 0);
+      const assignedVol2FromHour = hourAttributions.reduce((sum, a) => sum + (Number(a.vol2_hours) || 0), 0);
+      const assignedVol1FromAssignments = assignments.reduce((sum, a) => sum + (a.vol1_hours || 0), 0);
+      const assignedVol2FromAssignments = assignments.reduce((sum, a) => sum + (a.vol2_hours || 0), 0);
+      
+      // Utiliser hour_attributions si disponible, sinon course_assignments
+      const assignedVol1 = assignedVol1FromHour > 0 ? assignedVol1FromHour : assignedVol1FromAssignments;
+      const assignedVol2 = assignedVol2FromHour > 0 ? assignedVol2FromHour : assignedVol2FromAssignments;
+      
       const totalVolume = totalVol1 + totalVol2;
       const assignedVolume = assignedVol1 + assignedVol2;
+      
+      // Combiner les enseignants des deux sources
+      const allTeachers = [
+        ...hourAttributions.map(ha => ({
+          id: ha.id,
+          teacher: ha.teacher,
+          vol1_hours: Number(ha.vol1_hours) || 0,
+          vol2_hours: Number(ha.vol2_hours) || 0,
+          is_coordinator: ha.is_coordinator || false,
+          assignment_type: ha.assignment_type,
+          source: 'hour_attributions'
+        })),
+        ...assignments.map(a => ({
+          id: a.id,
+          teacher: a.teacher,
+          vol1_hours: a.vol1_hours || 0,
+          vol2_hours: a.vol2_hours || 0,
+          is_coordinator: a.is_coordinator || false,
+          assignment_type: null,
+          source: 'course_assignments'
+        }))
+      ];
       
       let vacant: CourseStatus['vacant'] = 'none';
       if (course.vacant) {
@@ -171,7 +210,7 @@ export const CentralizedCourseManagement: React.FC = () => {
 
       const status: CourseStatus = {
         vacant,
-        assignments: assignments.length,
+        assignments: allTeachers.length,
         totalVolume,
         assignedVolume,
         hasIssues,
@@ -179,7 +218,7 @@ export const CentralizedCourseManagement: React.FC = () => {
         validationStatus
       };
 
-      return { ...course, status };
+      return { ...course, status, allTeachers };
     });
   }, [normalizedCourses, modificationRequests]);
 
@@ -595,7 +634,7 @@ export const CentralizedCourseManagement: React.FC = () => {
                   </div>
 
                   {/* Informations de base */}
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-4">
                     <div>
                       <Label className="text-xs text-muted-foreground">Faculté</Label>
                       <p className="text-sm font-medium">{course.faculty || 'Non définie'}</p>
@@ -605,14 +644,20 @@ export const CentralizedCourseManagement: React.FC = () => {
                       <p className="text-sm font-medium">{course.school ? course.school : (course.subcategory || 'Non définie')}</p>
                     </div>
                     <div>
-                      <Label className="text-xs text-muted-foreground">Enseignants</Label>
-                      <p className="text-sm font-medium">{course.status.assignments}</p>
+                      <Label className="text-xs text-muted-foreground">Vol1 Total</Label>
+                      <p className="text-sm font-medium">
+                        {course.vol1_total || course.volume_total_vol1 || 0}h
+                      </p>
                     </div>
                     <div>
-                      <Label className="text-xs text-muted-foreground">Volume</Label>
+                      <Label className="text-xs text-muted-foreground">Vol2 Total</Label>
                       <p className="text-sm font-medium">
-                        {course.status.assignedVolume}/{course.status.totalVolume}h
+                        {course.vol2_total || course.volume_total_vol2 || 0}h
                       </p>
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Enseignants</Label>
+                      <p className="text-sm font-medium">{course.status.assignments}</p>
                     </div>
                   </div>
 
@@ -628,11 +673,12 @@ export const CentralizedCourseManagement: React.FC = () => {
                             Enseignants assignés ({course.status.assignments})
                           </AccordionTrigger>
                           <AccordionContent>
-                            {course.assignments && course.assignments.length > 0 ? (
+                            {course.allTeachers && course.allTeachers.length > 0 ? (
                               <Table>
                                 <TableHeader>
                                   <TableRow>
                                     <TableHead>Enseignant</TableHead>
+                                    <TableHead>Email</TableHead>
                                     <TableHead>Rôle</TableHead>
                                     <TableHead>Vol1 (h)</TableHead>
                                     <TableHead>Vol2 (h)</TableHead>
@@ -640,14 +686,19 @@ export const CentralizedCourseManagement: React.FC = () => {
                                   </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                  {course.assignments.map((assignment) => (
+                                  {course.allTeachers.map((assignment: any) => (
                                     <TableRow key={assignment.id}>
                                       <TableCell>
-                                        {assignment.teacher?.first_name} {assignment.teacher?.last_name}
+                                        {assignment.teacher?.first_name || assignment.teacher?.prenom || ''} {assignment.teacher?.last_name || assignment.teacher?.nom || ''}
+                                      </TableCell>
+                                      <TableCell className="text-xs">
+                                        {assignment.teacher?.email || '-'}
                                       </TableCell>
                                       <TableCell>
                                         {assignment.is_coordinator ? (
                                           <Badge variant="default">Coordinateur</Badge>
+                                        ) : assignment.assignment_type ? (
+                                          <Badge variant="secondary">{assignment.assignment_type}</Badge>
                                         ) : (
                                           <Badge variant="secondary">Enseignant</Badge>
                                         )}
@@ -696,12 +747,14 @@ export const CentralizedCourseManagement: React.FC = () => {
                                   <Label className="text-sm font-medium">Volume Vol1</Label>
                                   <div className="flex items-center gap-2">
                                     <Progress 
-                                      value={(course.status.assignedVolume / course.status.totalVolume) * 100} 
+                                      value={((course.vol1_total || course.volume_total_vol1 || 0) > 0) 
+                                        ? ((course.allTeachers?.reduce((sum: number, a: any) => sum + (a.vol1_hours || 0), 0) || 0) / (course.vol1_total || course.volume_total_vol1 || 1)) * 100
+                                        : 0} 
                                       className="flex-1"
                                     />
                                     <span className="text-sm">
-                                      {course.assignments?.reduce((sum, a) => sum + (a.vol1_hours || 0), 0) || 0}/
-                                      {course.volume_total_vol1 || 0}h
+                                      {course.allTeachers?.reduce((sum: number, a: any) => sum + (a.vol1_hours || 0), 0) || 0}/
+                                      {course.vol1_total || course.volume_total_vol1 || 0}h
                                     </span>
                                   </div>
                                 </div>
@@ -709,12 +762,14 @@ export const CentralizedCourseManagement: React.FC = () => {
                                   <Label className="text-sm font-medium">Volume Vol2</Label>
                                   <div className="flex items-center gap-2">
                                     <Progress 
-                                      value={(course.status.assignedVolume / course.status.totalVolume) * 100} 
+                                      value={((course.vol2_total || course.volume_total_vol2 || 0) > 0)
+                                        ? ((course.allTeachers?.reduce((sum: number, a: any) => sum + (a.vol2_hours || 0), 0) || 0) / (course.vol2_total || course.volume_total_vol2 || 1)) * 100
+                                        : 0} 
                                       className="flex-1"
                                     />
                                     <span className="text-sm">
-                                      {course.assignments?.reduce((sum, a) => sum + (a.vol2_hours || 0), 0) || 0}/
-                                      {course.volume_total_vol2 || 0}h
+                                      {course.allTeachers?.reduce((sum: number, a: any) => sum + (a.vol2_hours || 0), 0) || 0}/
+                                      {course.vol2_total || course.volume_total_vol2 || 0}h
                                     </span>
                                   </div>
                                 </div>

@@ -62,6 +62,7 @@ interface CourseStatus {
 
 interface CourseFilters {
   faculty: string;
+  attributionFaculty: string; // Faculté d'attribution depuis hour_attributions
   school: string;
   status: 'all' | 'vacant' | 'partial' | 'assigned' | 'with_issues';
   academicYear: string;
@@ -76,6 +77,7 @@ interface CourseSort {
 export const CentralizedCourseManagement: React.FC = () => {
   const [filters, setFilters] = useState<CourseFilters>({
     faculty: "all",
+    attributionFaculty: "all",
     school: "all",
     status: "all",
     academicYear: "2026-2027",
@@ -234,9 +236,20 @@ export const CentralizedCourseManagement: React.FC = () => {
       );
     }
 
-    // Filtre par faculté
+    // Filtre par faculté du cours
     if (filters.faculty !== "all") {
       filtered = filtered.filter(course => course.faculty === filters.faculty);
+    }
+
+    // Filtre par faculté d'attribution
+    if (filters.attributionFaculty !== "all") {
+      filtered = filtered.filter(course => {
+        const attributionFaculties = course.allTeachers
+          ?.map((t: any) => t.faculty || course.faculty)
+          .filter(Boolean) || [];
+        return attributionFaculties.includes(filters.attributionFaculty) || 
+               (attributionFaculties.length === 0 && course.faculty === filters.attributionFaculty);
+      });
     }
 
     // Filtre par école
@@ -336,11 +349,15 @@ export const CentralizedCourseManagement: React.FC = () => {
 
   // Mutations
   const updateCourseMutation = useMutation({
-    mutationFn: async (courseData: Partial<Course>) => {
+    mutationFn: async (courseData: Partial<Course> & { vol1_total?: number; vol2_total?: number }) => {
       if (!selectedCourse) throw new Error("No course selected");
       const { data, error } = await supabase
         .from('courses')
-        .update(courseData)
+        .update({
+          ...courseData,
+          vol1_total: courseData.vol1_total ?? courseData.volume_total_vol1,
+          vol2_total: courseData.vol2_total ?? courseData.volume_total_vol2,
+        })
         .eq('id', selectedCourse.id)
         .select()
         .single();
@@ -504,7 +521,7 @@ export const CentralizedCourseManagement: React.FC = () => {
           <CardTitle>Filtres et Recherche</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
             <Input
               placeholder="Rechercher par titre ou code..."
               value={filters.search}
@@ -516,11 +533,29 @@ export const CentralizedCourseManagement: React.FC = () => {
               onValueChange={(value) => setFilters(prev => ({ ...prev, faculty: value }))}
             >
               <SelectTrigger>
-                <SelectValue placeholder="Faculté" />
+                <SelectValue placeholder="Faculté cours" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Toutes les facultés</SelectItem>
                 {Array.from(new Set(normalizedCourses.map(c => c.faculty).filter(Boolean))).map(faculty => (
+                  <SelectItem key={faculty} value={faculty}>{faculty}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select
+              value={filters.attributionFaculty}
+              onValueChange={(value) => setFilters(prev => ({ ...prev, attributionFaculty: value }))}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Faculté attribution" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Toutes les facultés</SelectItem>
+                {Array.from(new Set(
+                  coursesWithStatus.flatMap(c => 
+                    c.allTeachers?.map((t: any) => t.faculty || c.faculty).filter(Boolean) || [c.faculty].filter(Boolean)
+                  )
+                )).map(faculty => (
                   <SelectItem key={faculty} value={faculty}>{faculty}</SelectItem>
                 ))}
               </SelectContent>
@@ -618,7 +653,19 @@ export const CentralizedCourseManagement: React.FC = () => {
                           setIsEditDialogOpen(true);
                         }}
                       >
-                        <Edit className="h-4 w-4" />
+                        <Edit className="h-4 w-4 mr-1" />
+                        Modifier cours
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setSelectedCourse({ ...course, school: course.school ?? null });
+                          setIsAssignmentDialogOpen(true);
+                        }}
+                      >
+                        <Users className="h-4 w-4 mr-1" />
+                        Gérer enseignants
                       </Button>
                       <Button
                         variant="outline"
@@ -868,7 +915,7 @@ export const CentralizedCourseManagement: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <Label>Volume Vol1 (h)</Label>
+                  <Label>Volume Total Vol1 (h)</Label>
                   <Input
                     type="number"
                     value={selectedCourse.volume_total_vol1 || 0}
@@ -876,12 +923,42 @@ export const CentralizedCourseManagement: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <Label>Volume Vol2 (h)</Label>
+                  <Label>Volume Total Vol2 (h)</Label>
                   <Input
                     type="number"
                     value={selectedCourse.volume_total_vol2 || 0}
                     onChange={(e) => setSelectedCourse(prev => prev ? { ...prev, volume_total_vol2: Number(e.target.value) } : null)}
                   />
+                </div>
+                <div>
+                  <Label>Vol1 Total (h)</Label>
+                  <Input
+                    type="number"
+                    value={selectedCourse.vol1_total || 0}
+                    onChange={(e) => setSelectedCourse(prev => prev ? { ...prev, vol1_total: Number(e.target.value) } : null)}
+                  />
+                </div>
+                <div>
+                  <Label>Vol2 Total (h)</Label>
+                  <Input
+                    type="number"
+                    value={selectedCourse.vol2_total || 0}
+                    onChange={(e) => setSelectedCourse(prev => prev ? { ...prev, vol2_total: Number(e.target.value) } : null)}
+                  />
+                </div>
+                <div>
+                  <Label>Année académique</Label>
+                  <Input
+                    value={selectedCourse.academic_year || ''}
+                    onChange={(e) => setSelectedCourse(prev => prev ? { ...prev, academic_year: e.target.value } : null)}
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    checked={selectedCourse.vacant || false}
+                    onCheckedChange={(checked) => setSelectedCourse(prev => prev ? { ...prev, vacant: !!checked } : null)}
+                  />
+                  <Label>Vacant</Label>
                 </div>
               </div>
               <div className="flex justify-end gap-2">
@@ -897,18 +974,214 @@ export const CentralizedCourseManagement: React.FC = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Dialog d'ajout d'enseignant */}
+      {/* Dialog de gestion des enseignants */}
       <Dialog open={isAssignmentDialogOpen} onOpenChange={setIsAssignmentDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Ajouter un enseignant</DialogTitle>
+            <DialogTitle>Gestion des enseignants - {selectedCourse?.title}</DialogTitle>
           </DialogHeader>
           {selectedCourse && (
             <div className="space-y-4">
-              <p className="text-sm text-muted-foreground">
-                Fonctionnalité d'ajout d'enseignant à implémenter
-              </p>
-              <div className="flex justify-end">
+              {/* Informations du cours */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Informations du cours</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Code</Label>
+                      <p className="text-sm font-medium">{selectedCourse.code}</p>
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Faculté</Label>
+                      <p className="text-sm font-medium">{selectedCourse.faculty || 'Non définie'}</p>
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Vol1 Total</Label>
+                      <p className="text-sm font-medium">{selectedCourse.vol1_total || selectedCourse.volume_total_vol1 || 0}h</p>
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Vol2 Total</Label>
+                      <p className="text-sm font-medium">{selectedCourse.vol2_total || selectedCourse.volume_total_vol2 || 0}h</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Liste des enseignants */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center justify-between">
+                    <span>Enseignants assignés ({selectedCourse.allTeachers?.length || 0})</span>
+                    <Button size="sm" onClick={() => {
+                      // TODO: Implémenter l'ajout d'enseignant
+                      toast({
+                        title: "Fonctionnalité à venir",
+                        description: "L'ajout d'enseignant sera disponible prochainement.",
+                      });
+                    }}>
+                      <UserPlus className="h-4 w-4 mr-2" />
+                      Ajouter
+                    </Button>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {selectedCourse.allTeachers && selectedCourse.allTeachers.length > 0 ? (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Enseignant</TableHead>
+                          <TableHead>Email</TableHead>
+                          <TableHead>Rôle</TableHead>
+                          <TableHead>Faculté</TableHead>
+                          <TableHead>Vol1 (h)</TableHead>
+                          <TableHead>Vol2 (h)</TableHead>
+                          <TableHead>Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {selectedCourse.allTeachers.map((assignment: any) => (
+                          <TableRow key={assignment.id}>
+                            <TableCell>
+                              {assignment.teacher?.first_name || assignment.teacher?.prenom || ''} {assignment.teacher?.last_name || assignment.teacher?.nom || ''}
+                            </TableCell>
+                            <TableCell className="text-xs">
+                              {assignment.teacher?.email || '-'}
+                            </TableCell>
+                            <TableCell>
+                              {assignment.is_coordinator ? (
+                                <Badge variant="default">Coordinateur</Badge>
+                              ) : assignment.assignment_type ? (
+                                <Badge variant="secondary">{assignment.assignment_type}</Badge>
+                              ) : (
+                                <Badge variant="secondary">Enseignant</Badge>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              {assignment.faculty || selectedCourse.faculty || '-'}
+                            </TableCell>
+                            <TableCell>
+                              <Input
+                                type="number"
+                                value={assignment.vol1_hours || 0}
+                                onChange={(e) => {
+                                  // Mettre à jour localement pour l'affichage
+                                  const updatedTeachers = selectedCourse.allTeachers?.map((t: any) =>
+                                    t.id === assignment.id ? { ...t, vol1_hours: Number(e.target.value) } : t
+                                  );
+                                  setSelectedCourse(prev => prev ? { ...prev, allTeachers: updatedTeachers } : null);
+                                }}
+                                className="w-20"
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Input
+                                type="number"
+                                value={assignment.vol2_hours || 0}
+                                onChange={(e) => {
+                                  const updatedTeachers = selectedCourse.allTeachers?.map((t: any) =>
+                                    t.id === assignment.id ? { ...t, vol2_hours: Number(e.target.value) } : t
+                                  );
+                                  setSelectedCourse(prev => prev ? { ...prev, allTeachers: updatedTeachers } : null);
+                                }}
+                                className="w-20"
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex gap-1">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={async () => {
+                                    try {
+                                      if (assignment.source === 'hour_attributions') {
+                                        const { error } = await supabase
+                                          .from('hour_attributions')
+                                          .update({
+                                            vol1_hours: assignment.vol1_hours,
+                                            vol2_hours: assignment.vol2_hours
+                                          })
+                                          .eq('id', assignment.id);
+                                        if (error) throw error;
+                                      } else {
+                                        const { error } = await supabase
+                                          .from('course_assignments')
+                                          .update({
+                                            vol1_hours: assignment.vol1_hours,
+                                            vol2_hours: assignment.vol2_hours
+                                          })
+                                          .eq('id', assignment.id);
+                                        if (error) throw error;
+                                      }
+                                      queryClient.invalidateQueries({ queryKey: ['centralized-courses'] });
+                                      toast({
+                                        title: "Volumes mis à jour",
+                                        description: "Les volumes de l'enseignant ont été mis à jour.",
+                                      });
+                                    } catch (error: any) {
+                                      toast({
+                                        title: "Erreur",
+                                        description: error.message,
+                                        variant: "destructive",
+                                      });
+                                    }
+                                  }}
+                                >
+                                  <CheckCircle className="h-3 w-3" />
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={async () => {
+                                    if (confirm("Êtes-vous sûr de vouloir supprimer cette attribution ?")) {
+                                      try {
+                                        if (assignment.source === 'hour_attributions') {
+                                          const { error } = await supabase
+                                            .from('hour_attributions')
+                                            .delete()
+                                            .eq('id', assignment.id);
+                                          if (error) throw error;
+                                        } else {
+                                          const { error } = await supabase
+                                            .from('course_assignments')
+                                            .delete()
+                                            .eq('id', assignment.id);
+                                          if (error) throw error;
+                                        }
+                                        queryClient.invalidateQueries({ queryKey: ['centralized-courses'] });
+                                        toast({
+                                          title: "Attribution supprimée",
+                                          description: "L'attribution a été supprimée avec succès.",
+                                        });
+                                        setIsAssignmentDialogOpen(false);
+                                      } catch (error: any) {
+                                        toast({
+                                          title: "Erreur",
+                                          description: error.message,
+                                          variant: "destructive",
+                                        });
+                                      }
+                                    }
+                                  }}
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      Aucun enseignant assigné à ce cours
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <div className="flex justify-end gap-2">
                 <Button variant="outline" onClick={() => setIsAssignmentDialogOpen(false)}>
                   Fermer
                 </Button>

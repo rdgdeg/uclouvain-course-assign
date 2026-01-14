@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -37,6 +37,7 @@ import { useCourseAttributions } from "@/hooks/useCourseAttributions";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 export const ImportedCoursesPanel: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -58,21 +59,73 @@ export const ImportedCoursesPanel: React.FC = () => {
   const stats = getStats();
 
   // Filtrer les cours selon les critères
-  const filteredCourses = courses.filter(course => {
-    const matchesSearch = 
-      course.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      course.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (course.coordinator_name && course.coordinator_name.toLowerCase().includes(searchQuery.toLowerCase()));
-    
-    const matchesStatus = statusFilter === 'all' || course.validation_status === statusFilter;
-    
-    return matchesSearch && matchesStatus;
-  });
+  const filteredCourses = useMemo(() => {
+    const query = searchQuery.toLowerCase();
+    return courses.filter(course => {
+      const matchesSearch = 
+        course.title.toLowerCase().includes(query) ||
+        course.code.toLowerCase().includes(query) ||
+        (course.coordinator_name && course.coordinator_name.toLowerCase().includes(query));
+      
+      const matchesStatus = statusFilter === 'all' || course.validation_status === statusFilter;
+      return matchesSearch && matchesStatus;
+    });
+  }, [courses, searchQuery, statusFilter]);
 
-  // Pagination
-  const totalPages = Math.ceil(filteredCourses.length / itemsPerPage);
+  // Aplatir : une ligne par attribution (ou une ligne "Non attribué" si aucune attribution)
+  const flattenedAttributions = useMemo(() => {
+    const rows: Array<{
+      courseId: number;
+      courseCode: string;
+      courseTitle: string;
+      faculty: string;
+      vol1Total: number;
+      vol2Total: number;
+      teacherName: string;
+      teacherEmail: string;
+      vol1Hours: number;
+      vol2Hours: number;
+    }> = [];
+
+    filteredCourses.forEach(course => {
+      if (!course.attributions || course.attributions.length === 0) {
+        rows.push({
+          courseId: course.id,
+          courseCode: course.code,
+          courseTitle: course.title,
+          faculty: course.faculty,
+          vol1Total: course.vol1_total || 0,
+          vol2Total: course.vol2_total || 0,
+          teacherName: "Non attribué",
+          teacherEmail: "",
+          vol1Hours: 0,
+          vol2Hours: 0,
+        });
+      } else {
+        course.attributions.forEach(attr => {
+          rows.push({
+            courseId: course.id,
+            courseCode: course.code,
+            courseTitle: course.title,
+            faculty: attr.faculty || course.faculty,
+            vol1Total: course.vol1_total || 0,
+            vol2Total: course.vol2_total || 0,
+            teacherName: attr.teacher_name || "Non attribué",
+            teacherEmail: attr.teacher_email,
+            vol1Hours: attr.vol1_hours,
+            vol2Hours: attr.vol2_hours,
+          });
+        });
+      }
+    });
+
+    return rows;
+  }, [filteredCourses]);
+
+  // Pagination sur les lignes aplaties
+  const totalPages = Math.max(1, Math.ceil(flattenedAttributions.length / itemsPerPage));
   const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedCourses = filteredCourses.slice(startIndex, startIndex + itemsPerPage);
+  const paginatedRows = flattenedAttributions.slice(startIndex, startIndex + itemsPerPage);
 
   // Fonctions pour gérer l'expansion des cours
   const toggleCourseExpansion = (courseId: number) => {
@@ -86,7 +139,8 @@ export const ImportedCoursesPanel: React.FC = () => {
   };
 
   const expandAll = () => {
-    setExpandedCourses(new Set(paginatedCourses.map(c => c.id)));
+    // plus utilisé dans la vue tableau compacte, conservé pour compatibilité éventuelle
+    setExpandedCourses(new Set());
   };
 
   const collapseAll = () => {
@@ -283,278 +337,71 @@ export const ImportedCoursesPanel: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Actions de gestion des vues */}
+      {/* Résumé pagination */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Button
-            onClick={expandAll}
-            variant="outline"
-            size="sm"
-            className="flex items-center gap-2"
-          >
-            <Eye className="h-4 w-4" />
-            Tout déplier
-          </Button>
-          <Button
-            onClick={collapseAll}
-            variant="outline"
-            size="sm"
-            className="flex items-center gap-2"
-          >
-            <EyeOff className="h-4 w-4" />
-            Tout replier
-          </Button>
-        </div>
         <div className="text-sm text-muted-foreground">
-          Page {currentPage} sur {totalPages} • {filteredCourses.length} cours au total
+          {flattenedAttributions.length} lignes d'attribution • Page {currentPage} sur {totalPages}
         </div>
       </div>
 
-      {/* Liste des cours avec attributions - MÊME INTERFACE QUE LA VUE VISITEUR */}
+      {/* Liste des cours et attributions en vue tableau compacte */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <BookOpen className="h-5 w-5" />
-            Cours et attributions ({paginatedCourses.length} sur {filteredCourses.length})
+            Cours et attributions ({paginatedRows.length} sur {flattenedAttributions.length})
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-6">
-            {paginatedCourses.map((course) => {
-              const isExpanded = expandedCourses.has(course.id);
-              
-              return (
-                <Card key={course.id} className="border-l-4 border-l-primary">
-                  <CardHeader className="pb-4">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2">
-                          <h2 className="text-xl font-bold text-primary">{course.code}</h2>
-                          <Badge className={`border ${getStatusColor(course.validation_status)}`}>
-                            {getStatusLabel(course.validation_status)}
-                          </Badge>
-                          {course.faculty && (
-                            <Badge variant="secondary">{course.faculty}</Badge>
-                          )}
-                          <Badge variant="outline" className="bg-indigo-50 text-indigo-700 border-indigo-200">
-                            Admin
-                          </Badge>
-                        </div>
-                        <h3 className="text-lg font-medium text-gray-700 mb-3">{course.title}</h3>
-                        
-                        {/* Vue compacte - informations principales */}
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
-                          <div className="space-y-1">
-                            <div className="font-medium text-gray-900">Volume Total</div>
-                            <div className="text-2xl font-bold text-blue-600">
-                              {(course.vol1_total || 0) + (course.vol2_total || 0)}h
-                            </div>
-                            <div className="text-xs text-gray-500">
-                              Assigné: {course.total_assigned_vol1 + course.total_assigned_vol2}h
-                            </div>
-                          </div>
-                          
-                          <div className="space-y-1">
-                            <div className="font-medium text-gray-900">Volume 1</div>
-                            <div className="text-xl font-bold text-green-600">{course.vol1_total || 0}h</div>
-                            <div className="text-xs text-gray-500">
-                              Assigné: {course.total_assigned_vol1}h
-                            </div>
-                          </div>
-                          
-                          <div className="space-y-1">
-                            <div className="font-medium text-gray-900">Volume 2</div>
-                            <div className="text-xl font-bold text-purple-600">{course.vol2_total || 0}h</div>
-                            <div className="text-xs text-gray-500">
-                              Assigné: {course.total_assigned_vol2}h
-                            </div>
-                          </div>
-                          
-                          <div className="space-y-1">
-                            <div className="font-medium text-gray-900">Équipe</div>
-                            <div className="text-xl font-bold text-orange-600">{course.attributions.length}</div>
-                            <div className="text-xs text-gray-500">
-                              {course.coordinator_name ? `Coord: ${course.coordinator_name}` : 'Pas de coordinateur'}
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Indicateur d'incohérence en vue compacte */}
-                        {course.has_volume_mismatch && (
-                          <div className="mt-3 p-2 bg-yellow-50 border border-yellow-200 rounded-md">
-                            <div className="flex items-center gap-2 text-sm text-yellow-800">
-                              <AlertTriangle className="h-4 w-4" />
-                              <span className="font-medium">Incohérence volumes détectée</span>
-                            </div>
-                          </div>
-                        )}
-
-                        {course.attributions.length === 0 && (
-                          <div className="mt-3 p-3 bg-orange-50 border border-orange-200 rounded-md">
-                            <div className="flex items-center gap-2 text-sm text-orange-800">
-                              <AlertTriangle className="h-4 w-4" />
-                              <span className="font-medium">
-                                Aucune attribution importée - Utilisez l'import d'attributions pour ajouter les enseignants
-                              </span>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                      
-                      <div className="flex flex-col gap-2">
-                        <Button
-                          onClick={() => toggleCourseExpansion(course.id)}
-                          variant="outline"
-                          size="sm"
-                          className="flex items-center gap-2"
-                        >
-                          {isExpanded ? (
-                            <>
-                              <ChevronDown className="h-4 w-4" />
-                              Masquer détails
-                            </>
-                          ) : (
-                            <>
-                              <ChevronRight className="h-4 w-4" />
-                              Voir détails
-                            </>
-                          )}
-                        </Button>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  
-                  {/* Détails étendus - Affiché seulement si étendu */}
-                  {isExpanded && (
-                    <CardContent className="space-y-6">
-                      {/* Informations académiques détaillées */}
-                      <div>
-                        <h4 className="font-semibold text-gray-900 mb-3">Informations académiques</h4>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                          <div className="space-y-1">
-                            <div className="font-medium text-gray-900">Année académique</div>
-                            <div className="text-gray-600">{course.academic_year || '2026-2027'}</div>
-                          </div>
-                          {course.faculty && (
-                            <div className="space-y-1">
-                              <div className="font-medium text-gray-900">Faculté</div>
-                              <div className="text-gray-600">{course.faculty}</div>
-                            </div>
-                          )}
-                          {course.subcategory && (
-                            <div className="space-y-1">
-                              <div className="font-medium text-gray-900">Sous-catégorie</div>
-                              <div className="text-gray-600">{course.subcategory}</div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Équipe enseignante détaillée */}
-                      <div>
-                        <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                          <GraduationCap className="h-4 w-4" />
-                          Équipe enseignante ({course.attributions.length})
-                        </h4>
-                        
-                        {course.attributions.length > 0 ? (
-                          <div className="space-y-3">
-                            {course.attributions.map((attribution) => (
-                              <div key={attribution.id} className="p-4 border rounded-lg hover:bg-gray-50">
-                                <div className="flex items-start justify-between">
-                                  <div className="flex-1 space-y-2">
-                                    <div className="flex items-center gap-3 flex-wrap">
-                                      <div className="font-medium text-gray-900 text-lg">{attribution.teacher_name}</div>
-                                      {attribution.is_coordinator && (
-                                        <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-300">
-                                          <Users className="h-3 w-3 mr-1" />
-                                          Coordinateur
-                                        </Badge>
-                                      )}
-                                      {attribution.assignment_type && (
-                                        <Badge variant="secondary" className="text-xs">
-                                          {attribution.assignment_type}
-                                        </Badge>
-                                      )}
-                                    </div>
-                                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                                      <Mail className="h-4 w-4" />
-                                      <span>{attribution.teacher_email}</span>
-                                    </div>
-                                  </div>
-                                  <div className="text-right ml-4">
-                                    <div className="text-lg font-bold text-primary mb-1">
-                                      {attribution.vol1_hours + attribution.vol2_hours}h
-                                    </div>
-                                    <div className="text-xs text-gray-600 space-y-1">
-                                      <div>Vol1: {attribution.vol1_hours}h</div>
-                                      <div>Vol2: {attribution.vol2_hours}h</div>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <div className="p-6 border-2 border-dashed border-gray-300 rounded-lg text-center">
-                            <Users className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                            <p className="text-gray-600 font-medium">Aucune attribution définie</p>
-                            <p className="text-sm text-gray-500 mb-3">Ce cours n'a pas encore d'équipe enseignante assignée</p>
-                            <p className="text-xs text-gray-400">
-                              Les données d'attribution du fichier Excel doivent être importées via l'interface d'import d'attributions
-                            </p>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Informations supplémentaires du cours */}
-                      <div className="pt-4 border-t border-gray-200">
-                        <h4 className="font-semibold text-gray-900 mb-3">Informations détaillées</h4>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                          <div>
-                            <span className="font-medium text-gray-700">Code du cours:</span>
-                            <span className="ml-2 text-gray-600">{course.code}</span>
-                          </div>
-                          <div>
-                            <span className="font-medium text-gray-700">Statut:</span>
-                            <span className="ml-2 text-gray-600">
-                              {course.vacant ? 'Poste vacant' : 'Poste pourvu'}
-                            </span>
-                          </div>
-                          {course.start_date && (
-                            <div>
-                              <span className="font-medium text-gray-700">Date de début:</span>
-                              <span className="ml-2 text-gray-600">
-                                {new Date(course.start_date).toLocaleDateString()}
-                              </span>
-                            </div>
-                          )}
-                          {course.duration_weeks && (
-                            <div>
-                              <span className="font-medium text-gray-700">Durée:</span>
-                              <span className="ml-2 text-gray-600">{course.duration_weeks} semaines</span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </CardContent>
-                  )}
-                </Card>
-              );
-            })}
-            
-            {paginatedCourses.length === 0 && (
-              <div className="text-center py-12 text-gray-500">
-                <BookOpen className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p className="text-lg font-medium mb-2">Aucun cours trouvé</p>
-                <p>Essayez de modifier vos critères de recherche</p>
-              </div>
-            )}
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Code</TableHead>
+                  <TableHead>Intitulé</TableHead>
+                  <TableHead>Faculté</TableHead>
+                  <TableHead>Vol1 total</TableHead>
+                  <TableHead>Vol2 total</TableHead>
+                  <TableHead>Enseignant</TableHead>
+                  <TableHead>Vol1 attribué</TableHead>
+                  <TableHead>Vol2 attribué</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {paginatedRows.map((row, idx) => (
+                  <TableRow key={`${row.courseId}-${idx}`}>
+                    <TableCell className="whitespace-nowrap text-xs font-medium">
+                      {row.courseCode}
+                    </TableCell>
+                    <TableCell className="max-w-[260px] truncate text-xs">
+                      {row.courseTitle}
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap text-xs">
+                      {row.faculty || "-"}
+                    </TableCell>
+                    <TableCell className="text-xs">{row.vol1Total}h</TableCell>
+                    <TableCell className="text-xs">{row.vol2Total}h</TableCell>
+                    <TableCell className="max-w-[220px] truncate text-xs">
+                      {row.teacherName}
+                    </TableCell>
+                    <TableCell className="text-xs">{row.vol1Hours}h</TableCell>
+                    <TableCell className="text-xs">{row.vol2Hours}h</TableCell>
+                  </TableRow>
+                ))}
+                {paginatedRows.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={8} className="text-center text-sm text-muted-foreground py-8">
+                      Aucun résultat. Modifiez vos filtres ou votre recherche.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
           </div>
-          
+
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="mt-8 flex justify-center">
+            <div className="mt-6 flex justify-center">
               <Pagination>
                 <PaginationContent>
                   <PaginationItem>

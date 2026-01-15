@@ -255,25 +255,46 @@ export const CentralizedCourseManagement: React.FC = () => {
       
       // Combiner les enseignants des deux sources
       const allTeachers = [
-        ...hourAttributions.map(ha => ({
-          id: ha.id,
-          teacher: ha.teacher,
-          vol1_hours: Number(ha.vol1_hours) || 0,
-          vol2_hours: Number(ha.vol2_hours) || 0,
-          is_coordinator: ha.is_coordinator || false,
-          assignment_type: ha.assignment_type,
-          source: 'hour_attributions'
-        })),
-        ...assignments.map(a => ({
-          id: a.id,
-          teacher: a.teacher,
-          vol1_hours: a.vol1_hours || 0,
-          vol2_hours: a.vol2_hours || 0,
-          is_coordinator: a.is_coordinator || false,
-          assignment_type: null,
-          source: 'course_assignments'
-        }))
+        ...hourAttributions
+          .filter(ha => ha.teacher_id !== null) // Exclure les lignes avec teacher_id null (Non Attr.)
+          .map(ha => ({
+            id: ha.id,
+            teacher: ha.teacher,
+            vol1_hours: Number(ha.vol1_hours) || 0,
+            vol2_hours: Number(ha.vol2_hours) || 0,
+            is_coordinator: ha.is_coordinator || false,
+            assignment_type: ha.assignment_type,
+            source: 'hour_attributions'
+          })),
+        ...assignments
+          .filter(a => a.teacher_id !== null) // Exclure les lignes avec teacher_id null
+          .map(a => ({
+            id: a.id,
+            teacher: a.teacher,
+            vol1_hours: a.vol1_hours || 0,
+            vol2_hours: a.vol2_hours || 0,
+            is_coordinator: a.is_coordinator || false,
+            assignment_type: null,
+            source: 'course_assignments'
+          }))
       ];
+      
+      // Calculer les volumes non attribués (Non Attr.)
+      const nonAttributedVol1 = Math.max(0, totalVol1 - assignedVol1);
+      const nonAttributedVol2 = Math.max(0, totalVol2 - assignedVol2);
+      
+      // Ajouter une ligne "Non Attr." si il y a du volume non attribué
+      if (nonAttributedVol1 > 0 || nonAttributedVol2 > 0) {
+        allTeachers.push({
+          id: `non-attributed-${course.id}`,
+          teacher: null, // null pour indiquer "Non Attr."
+          vol1_hours: nonAttributedVol1,
+          vol2_hours: nonAttributedVol2,
+          is_coordinator: false,
+          assignment_type: null,
+          source: 'non-attributed'
+        });
+      }
       
       let vacant: CourseStatus['vacant'] = 'none';
       if (course.vacant) {
@@ -851,18 +872,26 @@ export const CentralizedCourseManagement: React.FC = () => {
                                   {course.allTeachers.map((assignment: any) => (
                                     <TableRow key={assignment.id}>
                                       <TableCell>
-                                        {assignment.teacher?.first_name || assignment.teacher?.prenom || ''} {assignment.teacher?.last_name || assignment.teacher?.nom || ''}
+                                        {assignment.teacher ? (
+                                          `${assignment.teacher?.first_name || assignment.teacher?.prenom || ''} ${assignment.teacher?.last_name || assignment.teacher?.nom || ''}`
+                                        ) : (
+                                          <span className="text-muted-foreground italic">Non Attr.</span>
+                                        )}
                                       </TableCell>
                                       <TableCell className="text-xs">
                                         {assignment.teacher?.email || '-'}
                                       </TableCell>
                                       <TableCell>
-                                        {assignment.is_coordinator ? (
-                                          <Badge variant="default">Coordinateur</Badge>
-                                        ) : assignment.assignment_type ? (
-                                          <Badge variant="secondary">{assignment.assignment_type}</Badge>
+                                        {assignment.teacher ? (
+                                          assignment.is_coordinator ? (
+                                            <Badge variant="default">Coordinateur</Badge>
+                                          ) : assignment.assignment_type ? (
+                                            <Badge variant="secondary">{assignment.assignment_type}</Badge>
+                                          ) : (
+                                            <Badge variant="secondary">Enseignant</Badge>
+                                          )
                                         ) : (
-                                          <Badge variant="secondary">Enseignant</Badge>
+                                          <Badge variant="outline" className="text-muted-foreground">Non attribué</Badge>
                                         )}
                                       </TableCell>
                                       <TableCell>{assignment.vol1_hours || 0}</TableCell>
@@ -1161,7 +1190,11 @@ export const CentralizedCourseManagement: React.FC = () => {
                         {selectedCourse.allTeachers.map((assignment: any) => (
                           <TableRow key={assignment.id}>
                             <TableCell>
-                              {assignment.teacher?.first_name || assignment.teacher?.prenom || ''} {assignment.teacher?.last_name || assignment.teacher?.nom || ''}
+                              {assignment.teacher ? (
+                                `${assignment.teacher?.first_name || assignment.teacher?.prenom || ''} ${assignment.teacher?.last_name || assignment.teacher?.nom || ''}`
+                              ) : (
+                                <span className="text-muted-foreground italic">Non Attr.</span>
+                              )}
                             </TableCell>
                             <TableCell className="text-xs">
                               {assignment.teacher?.email || '-'}

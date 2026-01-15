@@ -22,12 +22,19 @@ const ModificationRequests: React.FC = () => {
   const itemsPerPage = 12;
 
   const { data: courses = [], isLoading } = useQuery({
-    queryKey: ['courses-modification'],
+    queryKey: ['courses-modification', searchTerm, selectedFaculty],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('courses')
         .select(`
-          *,
+          id,
+          title,
+          code,
+          faculty,
+          subcategory,
+          volume_total_vol1,
+          volume_total_vol2,
+          vacant,
           assignments:course_assignments(
             id,
             course_id,
@@ -35,26 +42,34 @@ const ModificationRequests: React.FC = () => {
             is_coordinator,
             vol1_hours,
             vol2_hours,
-            validated_by_coord,
-            created_at,
-            updated_at,
-            teacher:teachers(*)
+            teacher:teachers(
+              id,
+              first_name,
+              last_name,
+              email
+            )
           )
-        `)
-        .order('title');
+        `);
+
+      // Filtrer côté serveur
+      if (selectedFaculty !== "all") {
+        query = query.eq('faculty', selectedFaculty);
+      }
+      if (searchTerm) {
+        query = query.or(`title.ilike.%${searchTerm}%,code.ilike.%${searchTerm}%`);
+      }
+
+      query = query.order('title');
       
+      const { data, error } = await query;
       if (error) throw error;
       return data || [];
-    }
+    },
+    staleTime: 30000, // Cache 30 secondes
   });
 
-  // Filtrage des cours
-  const filteredCourses = courses.filter(course => {
-    const matchesSearch = course.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         course.code.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesFaculty = selectedFaculty === "all" || course.faculty === selectedFaculty;
-    return matchesSearch && matchesFaculty;
-  });
+  // Plus besoin de filtrage côté client
+  const filteredCourses = courses;
 
   // Pagination
   const totalItems = filteredCourses.length;

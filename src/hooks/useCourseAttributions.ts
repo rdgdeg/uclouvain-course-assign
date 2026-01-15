@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -41,50 +42,55 @@ export interface CourseWithAttributions {
 }
 
 export const useCourseAttributions = () => {
-  const [courses, setCourses] = useState<CourseWithAttributions[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
-  const fetchCourses = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      // Récupérer les cours
+  // Utiliser React Query pour le cache et la gestion d'état
+  const { data: courses = [], isLoading: loading, error: queryError } = useQuery({
+    queryKey: ['course-attributions'],
+    queryFn: async () => {
+      // Récupérer les cours (colonnes spécifiques uniquement)
       const { data: coursesData, error: coursesError } = await supabase
         .from('courses')
-        .select('*')
+        .select('id,code,title,faculty,subcategory,vol1_total,vol2_total,volume_total_vol1,volume_total_vol2,academic_year,vacant,start_date,duration_weeks,created_at,updated_at')
         .order('code');
 
       if (coursesError) throw coursesError;
 
-      // Récupérer les attributions avec plus de détails
+      // Récupérer les attributions avec colonnes limitées
       const { data: attributionsData, error: attributionsError } = await supabase
         .from('hour_attributions')
         .select(`
-          *,
+          id,
+          course_id,
+          teacher_id,
+          vol1_hours,
+          vol2_hours,
+          is_coordinator,
+          candidature_status,
+          assignment_type,
+          status,
+          faculty,
           teachers:teacher_id (
             first_name,
             last_name,
-            email,
-            status
+            email
           )
         `);
 
       if (attributionsError) throw attributionsError;
 
-      // Récupérer les coordinateurs
+      // Récupérer les coordinateurs (colonnes limitées)
       const { data: coordinatorsData, error: coordinatorsError } = await supabase
         .from('course_coordinators')
-        .select('*');
+        .select('id,course_id,name,email');
 
       if (coordinatorsError) throw coordinatorsError;
 
-      // Récupérer les validations
+      // Récupérer les validations (colonnes limitées)
       const { data: validationsData, error: validationsError } = await supabase
         .from('coordinator_validations')
-        .select('*');
+        .select('id,course_id,status');
 
       if (validationsError) throw validationsError;
 
@@ -97,14 +103,14 @@ export const useCourseAttributions = () => {
             teacher_name: attr.teachers ? 
               `${attr.teachers.first_name} ${attr.teachers.last_name}` : 'N/A',
             teacher_email: attr.teachers?.email || '',
-            teacher_status: attr.teachers?.status || '',
+            teacher_status: '',
             vol1_hours: Number(attr.vol1_hours) || 0,
             vol2_hours: Number(attr.vol2_hours) || 0,
             candidature_status: attr.candidature_status || '',
             is_coordinator: attr.is_coordinator || false,
             assignment_type: attr.assignment_type || '',
             status: attr.status || '',
-            notes: attr.notes || '',
+            notes: '',
             faculty: attr.faculty || ''
           }));
 
@@ -137,22 +143,17 @@ export const useCourseAttributions = () => {
         };
       });
 
-      setCourses(coursesWithAttributions);
+      return coursesWithAttributions;
+    },
+    staleTime: 30000, // Cache 30 secondes
+    gcTime: 5 * 60 * 1000, // Garder en cache 5 minutes
+  });
 
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue';
-      console.error('Erreur lors du chargement des cours:', error);
-      setError(errorMessage);
-      
-      toast({
-        title: "Erreur de chargement",
-        description: errorMessage,
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
+  const fetchCourses = async () => {
+    queryClient.invalidateQueries({ queryKey: ['course-attributions'] });
   };
+
+  const error = queryError ? (queryError instanceof Error ? queryError.message : 'Erreur inconnue') : null;
 
   const getStats = () => {
     return {
@@ -170,10 +171,6 @@ export const useCourseAttributions = () => {
       ).length
     };
   };
-
-  useEffect(() => {
-    fetchCourses();
-  }, []);
 
   return {
     courses,

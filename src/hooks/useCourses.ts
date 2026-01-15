@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Course, Teacher, TeacherAssignment } from "@/types/index";
@@ -7,29 +7,92 @@ import { Course, Teacher, TeacherAssignment } from "@/types/index";
 // Export des types pour la compatibilité
 export type { Course, Teacher, TeacherAssignment };
 
-export const useCourses = () => {
-  const [courses, setCourses] = useState<Course[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+interface FetchCoursesOptions {
+  includeAssignments?: boolean;
+  academicYear?: string;
+  limit?: number;
+  offset?: number;
+  filters?: {
+    faculty?: string;
+    search?: string;
+    vacant?: boolean;
+  };
+}
+
+export const useCourses = (options: FetchCoursesOptions = {}) => {
+  const { 
+    includeAssignments = false, 
+    academicYear,
+    limit,
+    offset = 0,
+    filters = {}
+  } = options;
+  
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const fetchCourses = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      // Requête optimisée avec jointure
-      const { data: coursesData, error: coursesError } = await supabase
+  // Utiliser React Query pour le cache et la gestion d'état
+  const { data: courses = [], isLoading: loading, error: queryError } = useQuery({
+    queryKey: ['courses', academicYear, filters, limit, offset, includeAssignments],
+    queryFn: async () => {
+      // Construire la requête avec colonnes spécifiques uniquement
+      let query = supabase
         .from('courses')
         .select(`
-          *,
+          id,
+          title,
+          code,
+          faculty,
+          subcategory,
+          volume_total_vol1,
+          volume_total_vol2,
+          vol1_total,
+          vol2_total,
+          academic_year,
+          vacant,
+          start_date,
+          duration_weeks,
+          created_at,
+          updated_at
+          ${includeAssignments ? `,
           assignments:course_assignments(
-            *,
-            teacher:teachers(*)
-          )
-        `)
-        .order('title');
+            id,
+            course_id,
+            teacher_id,
+            vol1_hours,
+            vol2_hours,
+            is_coordinator,
+            teacher:teachers(
+              id,
+              first_name,
+              last_name,
+              email
+            )
+          )` : ''}
+        `);
+
+      // Appliquer les filtres côté serveur
+      if (academicYear) {
+        query = query.eq('academic_year', academicYear);
+      }
+      if (filters.faculty && filters.faculty !== 'all') {
+        query = query.eq('faculty', filters.faculty);
+      }
+      if (filters.vacant !== undefined) {
+        query = query.eq('vacant', filters.vacant);
+      }
+      if (filters.search) {
+        query = query.or(`title.ilike.%${filters.search}%,code.ilike.%${filters.search}%`);
+      }
+
+      // Pagination côté serveur
+      if (limit) {
+        query = query.range(offset, offset + limit - 1);
+      }
+
+      query = query.order('title');
+
+      const { data: coursesData, error: coursesError } = await query;
 
       if (coursesError) {
         console.error('Erreur lors de la récupération des cours:', coursesError);
@@ -37,38 +100,22 @@ export const useCourses = () => {
       }
 
       if (!coursesData) {
-        throw new Error('Aucune donnée reçue du serveur');
+        return [];
       }
 
-      // Transformer les données pour correspondre à l'interface
-      const coursesWithAssignments = coursesData.map(course => ({
+      // Transformer les données
+      return coursesData.map(course => ({
         ...course,
         assignments: course.assignments || []
-      }));
+      })) as Course[];
+    },
+    staleTime: 30000, // Cache 30 secondes
+    gcTime: 5 * 60 * 1000, // Garder en cache 5 minutes
+  });
 
-      setCourses(coursesWithAssignments);
-      
-      // Notification de succès discrète
-      toast({
-        title: "Données mises à jour",
-        description: `${coursesWithAssignments.length} cours chargés`,
-        duration: 2000,
-      });
-      
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue';
-      console.error('Error fetching courses:', error);
-      setError(errorMessage);
-      
-      toast({
-        title: "Erreur de chargement",
-        description: errorMessage,
-        variant: "destructive",
-        duration: 5000,
-      });
-    } finally {
-      setLoading(false);
-    }
+  const fetchCourses = async () => {
+    // Invalider le cache pour forcer un refresh
+    queryClient.invalidateQueries({ queryKey: ['courses'] });
   };
 
   const updateCourseStatus = async (courseId: number, vacant: boolean) => {
@@ -130,25 +177,32 @@ export const useCourses = () => {
     return { isValid: true };
   };
 
-  useEffect(() => {
-    fetchCourses();
-  }, []);
-
   // Mutation pour créer un cours
   const createCourse = useMutation({
     mutationFn: async (courseData: any) => {
       const { data, error } = await supabase
         .from('courses')
         .insert([courseData])
-        .select()
+        .select('id,title,code,faculty,subcategory,volume_total_vol1,volume_total_vol2,vol1_total,vol2_total,academic_year,vacant')
         .single();
       
       if (error) throw error;
       return data;
     },
-    onSuccess: (newCourse) => {
-      setCourses(prev => [...prev, newCourse]);
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['courses'] });
+      toast({
+        title: "Cours créé",
+        description: "Le cours a été créé avec succès.",
+        duration: 2000,
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Erreur",
+        description: error.message,
+        variant: "destructive",
+      });
     },
   });
 
@@ -159,25 +213,67 @@ export const useCourses = () => {
         .from('courses')
         .update(courseData)
         .eq('id', id)
-        .select()
+        .select('id,title,code,faculty,subcategory,volume_total_vol1,volume_total_vol2,vol1_total,vol2_total,academic_year,vacant')
         .single();
       
       if (error) throw error;
       return data;
     },
-    onSuccess: (updatedCourse) => {
-      setCourses(prev => prev.map(course => 
-        course.id === updatedCourse.id ? updatedCourse : course
-      ));
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['courses'] });
+      toast({
+        title: "Cours mis à jour",
+        description: "Les modifications ont été enregistrées.",
+        duration: 2000,
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Erreur",
+        description: error.message,
+        variant: "destructive",
+      });
     },
   });
+
+  const updateCourseStatus = async (courseId: number, vacant: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('courses')
+        .update({ vacant })
+        .eq('id', courseId);
+
+      if (error) {
+        console.error('Erreur lors de la mise à jour:', error);
+        throw new Error(`Erreur de mise à jour: ${error.message}`);
+      }
+
+      // Invalider le cache pour recharger
+      queryClient.invalidateQueries({ queryKey: ['courses'] });
+
+      toast({
+        title: "Statut mis à jour",
+        description: `Cours marqué comme ${vacant ? 'vacant' : 'non vacant'}`,
+        duration: 2000,
+      });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue';
+      console.error('Error updating course status:', error);
+      
+      toast({
+        title: "Erreur de mise à jour",
+        description: errorMessage,
+        variant: "destructive",
+        duration: 5000,
+      });
+    }
+  };
 
   return {
     courses,
     loading,
     isLoading: loading, // Alias pour compatibilité
-    error,
+    error: queryError ? (queryError instanceof Error ? queryError.message : 'Erreur inconnue') : null,
     fetchCourses,
     updateCourseStatus,
     validateHourDistribution,

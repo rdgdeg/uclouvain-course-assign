@@ -241,14 +241,20 @@ export const AdminDashboard = () => {
     }
   });
 
-  // Récupération des propositions
+  // Récupération des propositions (colonnes limitées)
   const { data: proposals = [], isLoading: proposalsLoading } = useQuery({
     queryKey: ['assignment-proposals', statusFilter],
     queryFn: async () => {
       let query = supabase
         .from('assignment_proposals')
         .select(`
-          *,
+          id,
+          course_id,
+          submitter_name,
+          submitter_email,
+          submission_date,
+          status,
+          proposal_data,
           course:courses(
             title,
             code,
@@ -267,17 +273,25 @@ export const AdminDashboard = () => {
       const { data, error } = await query;
       if (error) throw error;
       return data as Proposal[];
-    }
+    },
+    staleTime: 30000, // Cache 30 secondes
   });
 
-  // Récupération des demandes de modification
+  // Récupération des demandes de modification (colonnes limitées)
   const { data: requests = [], isLoading: requestsLoading } = useQuery({
     queryKey: ['modification-requests'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('modification_requests')
         .select(`
-          *,
+          id,
+          course_id,
+          requester_name,
+          requester_email,
+          modification_type,
+          description,
+          status,
+          created_at,
           courses (
             title,
             code,
@@ -287,20 +301,22 @@ export const AdminDashboard = () => {
         .order('created_at', { ascending: false });
       if (error) throw error;
       return data as ModificationRequest[];
-    }
+    },
+    staleTime: 30000, // Cache 30 secondes
   });
 
-  // Récupération des cours
+  // Récupération des cours (colonnes limitées pour les stats uniquement)
   const { data: courses = [], isLoading: coursesLoading } = useQuery({
-    queryKey: ['courses'],
+    queryKey: ['courses-stats'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('courses')
-        .select('*')
+        .select('id,title,code,faculty,vacant,academic_year')
         .order('title');
       if (error) throw error;
       return data as Course[];
-    }
+    },
+    staleTime: 60000, // Cache 1 minute
   });
 
   // Calcul des statistiques

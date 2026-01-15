@@ -94,29 +94,75 @@ export const CentralizedCourseManagement: React.FC = () => {
   const [isAssignmentDialogOpen, setIsAssignmentDialogOpen] = useState(false);
   const [expandedCourses, setExpandedCourses] = useState<string[]>([]);
   
-  // Récupérer tous les cours avec leurs données complètes
+  // Récupérer les cours avec filtres côté serveur et colonnes limitées
   const { data: courses = [], isLoading } = useQuery({
-    queryKey: ['centralized-courses', filters.academicYear],
+    queryKey: ['centralized-courses', filters.academicYear, filters.faculty, filters.status, filters.search],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('courses')
         .select(`
-          *,
+          id,
+          title,
+          code,
+          faculty,
+          subcategory,
+          volume_total_vol1,
+          volume_total_vol2,
+          vol1_total,
+          vol2_total,
+          academic_year,
+          vacant,
+          start_date,
+          duration_weeks,
+          created_at,
+          updated_at,
           assignments:course_assignments(
-            *,
-            teacher:teachers(*)
+            id,
+            course_id,
+            teacher_id,
+            vol1_hours,
+            vol2_hours,
+            is_coordinator,
+            teacher:teachers(
+              id,
+              first_name,
+              last_name,
+              email
+            )
           ),
           hour_attributions(
-            *,
-            teacher:teachers(*)
+            id,
+            course_id,
+            teacher_id,
+            vol1_hours,
+            vol2_hours,
+            is_coordinator,
+            faculty,
+            teacher:teachers(
+              id,
+              first_name,
+              last_name,
+              email
+            )
           )
         `)
-        .eq('academic_year', filters.academicYear)
-        .order('title');
+        .eq('academic_year', filters.academicYear);
 
+      // Filtrer côté serveur
+      if (filters.faculty !== 'all') {
+        query = query.eq('faculty', filters.faculty);
+      }
+      if (filters.search) {
+        query = query.or(`title.ilike.%${filters.search}%,code.ilike.%${filters.search}%`);
+      }
+
+      query = query.order('title');
+
+      const { data, error } = await query;
       if (error) throw error;
       return data || [];
-    }
+    },
+    staleTime: 30000, // Cache 30 secondes
   });
 
   // Après récupération des cours (data: courses = []), on mappe pour garantir la présence de 'school'
@@ -125,29 +171,32 @@ export const CentralizedCourseManagement: React.FC = () => {
     school: course.school ?? null,
   }));
 
-  // Récupérer les demandes de modification
+  // Récupérer les demandes de modification (colonnes limitées)
   const { data: modificationRequests = [] } = useQuery({
     queryKey: ['modification-requests'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('modification_requests')
-        .select('*');
+        .select('id,course_id,status,created_at');
       if (error) throw error;
       return data;
-    }
+    },
+    staleTime: 60000, // Cache 1 minute
   });
 
-  // Récupérer tous les enseignants
+  // Récupérer tous les enseignants (colonnes limitées, chargé seulement si nécessaire)
   const { data: teachers = [] } = useQuery({
-    queryKey: ['all-teachers'],
+    queryKey: ['teachers-list'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('teachers')
-        .select('*')
+        .select('id,first_name,last_name,email')
         .order('last_name');
       if (error) throw error;
       return data || [];
-    }
+    },
+    staleTime: 5 * 60 * 1000, // Cache 5 minutes
+    enabled: false, // Chargé seulement sur demande
   });
 
   // Calculer le statut détaillé de chaque cours

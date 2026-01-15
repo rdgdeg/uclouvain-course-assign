@@ -352,40 +352,40 @@ export const ImportedCoursesPanel: React.FC = () => {
             Cours et attributions ({paginatedRows.length} sur {flattenedAttributions.length})
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0">
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Code</TableHead>
-                  <TableHead>Intitulé</TableHead>
-                  <TableHead>Faculté</TableHead>
-                  <TableHead>Vol1 total</TableHead>
-                  <TableHead>Vol2 total</TableHead>
-                  <TableHead>Enseignant</TableHead>
-                  <TableHead>Vol1 attribué</TableHead>
-                  <TableHead>Vol2 attribué</TableHead>
+                  <TableHead className="min-w-[80px]">Code</TableHead>
+                  <TableHead className="min-w-[200px] max-w-[200px]">Intitulé</TableHead>
+                  <TableHead className="min-w-[80px]">Faculté</TableHead>
+                  <TableHead className="min-w-[70px] text-right">Vol1</TableHead>
+                  <TableHead className="min-w-[70px] text-right">Vol2</TableHead>
+                  <TableHead className="min-w-[150px] max-w-[150px]">Enseignant</TableHead>
+                  <TableHead className="min-w-[70px] text-right">Vol1 attr.</TableHead>
+                  <TableHead className="min-w-[70px] text-right">Vol2 attr.</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {paginatedRows.map((row, idx) => (
                   <TableRow key={`${row.courseId}-${idx}`}>
-                    <TableCell className="whitespace-nowrap text-xs font-medium">
+                    <TableCell className="text-xs font-medium whitespace-nowrap">
                       {row.courseCode}
                     </TableCell>
-                    <TableCell className="max-w-[260px] truncate text-xs">
+                    <TableCell className="text-xs truncate max-w-[200px]" title={row.courseTitle}>
                       {row.courseTitle}
                     </TableCell>
-                    <TableCell className="whitespace-nowrap text-xs">
+                    <TableCell className="text-xs whitespace-nowrap">
                       {row.faculty || "-"}
                     </TableCell>
-                    <TableCell className="text-xs">{row.vol1Total}h</TableCell>
-                    <TableCell className="text-xs">{row.vol2Total}h</TableCell>
-                    <TableCell className="max-w-[220px] truncate text-xs">
+                    <TableCell className="text-xs text-right whitespace-nowrap">{row.vol1Total}h</TableCell>
+                    <TableCell className="text-xs text-right whitespace-nowrap">{row.vol2Total}h</TableCell>
+                    <TableCell className="text-xs truncate max-w-[150px]" title={row.teacherEmail || ''}>
                       {row.teacherName}
                     </TableCell>
-                    <TableCell className="text-xs">{row.vol1Hours}h</TableCell>
-                    <TableCell className="text-xs">{row.vol2Hours}h</TableCell>
+                    <TableCell className="text-xs text-right whitespace-nowrap">{row.vol1Hours}h</TableCell>
+                    <TableCell className="text-xs text-right whitespace-nowrap">{row.vol2Hours}h</TableCell>
                   </TableRow>
                 ))}
                 {paginatedRows.length === 0 && (

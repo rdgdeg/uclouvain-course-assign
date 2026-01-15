@@ -233,10 +233,11 @@ export const AttributionImportDialog: React.FC<{
         reader.onload = (event) => {
           try {
             const data = new Uint8Array(event.target?.result as ArrayBuffer);
-            const workbook = XLSX.read(data, { type: 'array' });
+            // Limiter la lecture aux premières lignes pour éviter de bloquer le navigateur
+            const workbook = XLSX.read(data, { type: 'array', sheetRows: 5 });
             const firstSheetName = workbook.SheetNames[0];
             const worksheet = workbook.Sheets[firstSheetName];
-            const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+            const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false });
             
             if (jsonData.length < 1) {
               toast({

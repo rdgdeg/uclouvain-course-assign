@@ -166,12 +166,29 @@ export const CentralizedCourseManagement: React.FC = () => {
 
       query = query.order('title');
 
-      // Supabase limite par défaut à 1000 résultats, on doit récupérer par lots si nécessaire
-      // Pour l'instant, on récupère jusqu'à 1000 cours (limite Supabase par défaut)
-      // Si besoin de plus, il faudra implémenter une pagination côté serveur
-      const { data, error } = await query.limit(1000);
-      if (error) throw error;
-      return data || [];
+      // Supabase limite par défaut à 1000 résultats
+      // On récupère tous les résultats par lots si nécessaire
+      let allData: any[] = [];
+      let hasMore = true;
+      let offset = 0;
+      const batchSize = 1000;
+
+      while (hasMore) {
+        const batchQuery = query.range(offset, offset + batchSize - 1);
+        const { data, error } = await batchQuery;
+        
+        if (error) throw error;
+        
+        if (data && data.length > 0) {
+          allData = [...allData, ...data];
+          offset += batchSize;
+          hasMore = data.length === batchSize; // Continue si on a récupéré exactement batchSize résultats
+        } else {
+          hasMore = false;
+        }
+      }
+
+      return allData;
     },
     staleTime: 30000, // Cache 30 secondes
   });

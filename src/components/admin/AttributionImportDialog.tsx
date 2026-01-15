@@ -234,76 +234,75 @@ export const AttributionImportDialog: React.FC<{
 
   const prepareMapping = async () => {
     if (!selectedFile) return;
-      
-      // Lire les en-têtes du fichier
-      try {
-        setIsParsingHeaders(true);
-        const XLSX = await import('xlsx');
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          try {
-            const data = new Uint8Array(event.target?.result as ArrayBuffer);
-            // Limiter la lecture aux premières lignes pour éviter de bloquer le navigateur
-            const workbook = XLSX.read(data, { type: 'array', sheetRows: 5 });
-            const firstSheetName = workbook.SheetNames[0];
-            const worksheet = workbook.Sheets[firstSheetName];
-            const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false });
-            
-            if (jsonData.length < 1) {
-              toast({
-                title: "Fichier vide",
-                description: "Le fichier ne contient pas de données",
-                variant: "destructive"
-              });
-              return;
-            }
-            
-            const headers = (jsonData[0] as string[]).map(h => h?.toString().trim() || '');
-            setFileHeaders(headers);
-            
-            // Créer un mapping automatique
-            const autoMapping = createAutoMapping(headers);
-            setColumnMapping(autoMapping);
-            
-            // Prévisualiser les premières lignes
-            const preview = jsonData.slice(1, 4).map((row: any) => {
-              const rowData: any = {};
-              headers.forEach((header, index) => {
-                rowData[header] = row[index];
-              });
-              return rowData;
-            });
-            setPreviewData(preview);
-            
-            // Afficher l'interface de mapping
-            setShowMapping(true);
-            setIsParsingHeaders(false);
-          } catch (error) {
+
+    // Lire les en-têtes du fichier
+    try {
+      setIsParsingHeaders(true);
+      const XLSX = await import('xlsx');
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        try {
+          const data = new Uint8Array(event.target?.result as ArrayBuffer);
+          // Limiter la lecture aux premières lignes pour éviter de bloquer le navigateur
+          const workbook = XLSX.read(data, { type: 'array', sheetRows: 5 });
+          const firstSheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[firstSheetName];
+          const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false });
+          
+          if (jsonData.length < 1) {
             toast({
-              title: "Erreur de lecture",
-              description: "Impossible de lire le fichier",
+              title: "Fichier vide",
+              description: "Le fichier ne contient pas de données",
               variant: "destructive"
             });
-            setIsParsingHeaders(false);
+            return;
           }
-        };
-        reader.onerror = () => {
+          
+          const headers = (jsonData[0] as string[]).map(h => h?.toString().trim() || '');
+          setFileHeaders(headers);
+          
+          // Créer un mapping automatique
+          const autoMapping = createAutoMapping(headers);
+          setColumnMapping(autoMapping);
+          
+          // Prévisualiser les premières lignes
+          const preview = jsonData.slice(1, 4).map((row: any) => {
+            const rowData: any = {};
+            headers.forEach((header, index) => {
+              rowData[header] = row[index];
+            });
+            return rowData;
+          });
+          setPreviewData(preview);
+          
+          // Afficher l'interface de mapping
+          setShowMapping(true);
+          setIsParsingHeaders(false);
+        } catch (error) {
           toast({
             title: "Erreur de lecture",
             description: "Impossible de lire le fichier",
             variant: "destructive"
           });
           setIsParsingHeaders(false);
-        };
-        reader.readAsArrayBuffer(selectedFile);
-      } catch (error) {
+        }
+      };
+      reader.onerror = () => {
         toast({
-          title: "Erreur",
-          description: "Impossible de charger le fichier",
+          title: "Erreur de lecture",
+          description: "Impossible de lire le fichier",
           variant: "destructive"
         });
         setIsParsingHeaders(false);
-      }
+      };
+      reader.readAsArrayBuffer(selectedFile);
+    } catch (error) {
+      toast({
+        title: "Erreur",
+        description: "Impossible de charger le fichier",
+        variant: "destructive"
+      });
+      setIsParsingHeaders(false);
     }
   };
 

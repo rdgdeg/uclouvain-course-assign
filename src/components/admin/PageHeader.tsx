@@ -39,6 +39,12 @@ const getPageInfo = (activeTab: string) => {
       icon: Activity,
       color: 'text-green-600'
     },
+    'courses': {
+      title: 'Gestion des Cours',
+      description: 'Gestion complète des cours et attributions',
+      icon: Grid3X3,
+      color: 'text-green-600'
+    },
     'courses-management': {
       title: 'Gestion des Cours',
       description: 'Gestion complète des cours et attributions',

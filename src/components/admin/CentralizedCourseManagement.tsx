@@ -166,7 +166,10 @@ export const CentralizedCourseManagement: React.FC = () => {
 
       query = query.order('title');
 
-      const { data, error } = await query;
+      // Supabase limite par défaut à 1000 résultats, on doit récupérer par lots si nécessaire
+      // Pour l'instant, on récupère jusqu'à 1000 cours (limite Supabase par défaut)
+      // Si besoin de plus, il faudra implémenter une pagination côté serveur
+      const { data, error } = await query.limit(1000);
       if (error) throw error;
       return data || [];
     },

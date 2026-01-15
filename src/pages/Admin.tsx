@@ -193,6 +193,7 @@ const Admin = () => {
         return <React.Suspense fallback={<LoadingFallback />}><AssignmentManagement /></React.Suspense>;
       case 'requests':
         return <React.Suspense fallback={<LoadingFallback />}><ModificationRequests /></React.Suspense>;
+      case 'courses':
       case 'courses-management':
         return <React.Suspense fallback={<LoadingFallback />}><CentralizedCourseManagement /></React.Suspense>;
       case 'tools':

@@ -226,6 +226,14 @@ export const AttributionImportDialog: React.FC<{
       
       setSelectedFile(file);
       setImportResult(null);
+      setShowMapping(false);
+      setFileHeaders([]);
+      setPreviewData([]);
+    }
+  };
+
+  const prepareMapping = async () => {
+    if (!selectedFile) return;
       
       // Lire les en-têtes du fichier
       try {
@@ -287,7 +295,7 @@ export const AttributionImportDialog: React.FC<{
           });
           setIsParsingHeaders(false);
         };
-        reader.readAsArrayBuffer(file);
+        reader.readAsArrayBuffer(selectedFile);
       } catch (error) {
         toast({
           title: "Erreur",
@@ -816,6 +824,14 @@ export const AttributionImportDialog: React.FC<{
                         </p>
                       )}
                     </div>
+                    {selectedFile && !showMapping && (
+                      <Button
+                        onClick={prepareMapping}
+                        disabled={isParsingHeaders}
+                      >
+                        Préparer le mapping
+                      </Button>
+                    )}
                   </>
                 ) : (
                   <div className="space-y-4">

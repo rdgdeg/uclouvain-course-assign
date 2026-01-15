@@ -1,12 +1,12 @@
 
-import React from "react";
+import React, { Suspense, lazy } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { LoadingSpinner } from "./components/ui/LoadingSpinner";
 import PublicIndex from "./pages/PublicIndex";
 import CourseVacancy from "./pages/CourseVacancy";
-import Admin from "./pages/Admin";
 import AttributionControl from "./pages/AttributionControl";
 import NotFound from "./pages/NotFound";
 import FreeProposal from "./pages/FreeProposal";
@@ -16,6 +16,9 @@ import { CourseVerificationPage } from "./components/CourseVerificationPage";
 import { AppAuth } from "./components/AppAuth";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { PerformanceMonitor } from "./components/PerformanceMonitor";
+
+// Lazy-load de la page Admin
+const Admin = lazy(() => import("./pages/Admin").then(m => ({ default: m.default })));
 
 // Configuration optimisée de TanStack Query
 const queryClient = new QueryClient({

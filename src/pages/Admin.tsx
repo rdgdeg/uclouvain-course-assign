@@ -48,7 +48,7 @@ import { AdminNotifications } from '@/components/admin/AdminNotifications';
 
 // Lazy-load des composants admin lourds
 const AdminDashboard = lazy(() => import("@/components/admin/AdminDashboard").then(m => ({ default: m.AdminDashboard })));
-const UnifiedCourseManagement = lazy(() => import("@/components/admin/UnifiedCourseManagement").then(m => ({ default: m.UnifiedCourseManagement })));
+const CentralizedCourseManagement = lazy(() => import("@/components/admin/CentralizedCourseManagement").then(m => ({ default: m.CentralizedCourseManagement })));
 const UnifiedTeacherManagement = lazy(() => import("@/components/admin/UnifiedTeacherManagement").then(m => ({ default: m.UnifiedTeacherManagement })));
 const UnifiedToolsPanel = lazy(() => import("@/components/admin/UnifiedToolsPanel").then(m => ({ default: m.UnifiedToolsPanel })));
 const TeacherImportAndStatus = lazy(() => import("@/components/admin/TeacherImportAndStatus").then(m => ({ default: m.TeacherImportAndStatus })));
@@ -196,7 +196,7 @@ const Admin = () => {
       case 'requests':
         return <Suspense fallback={<LoadingFallback />}><ModificationRequests /></Suspense>;
       case 'courses-management':
-        return <Suspense fallback={<LoadingFallback />}><UnifiedCourseManagement /></Suspense>;
+        return <Suspense fallback={<LoadingFallback />}><CentralizedCourseManagement /></Suspense>;
       case 'tools':
         return <Suspense fallback={<LoadingFallback />}><UnifiedToolsPanel /></Suspense>;
       case 'attribution-import':

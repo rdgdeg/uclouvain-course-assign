@@ -38,27 +38,35 @@ import {
 import { useCourses } from "@/hooks/useCourses";
 import { useToast } from "@/hooks/use-toast";
 
+import { Suspense, lazy } from "react";
+import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
 import { AdminMobileHeader } from "@/components/admin/AdminMobileHeader";
 import { PageHeader } from "@/components/admin/PageHeader";
-import { TeacherManagement } from "@/components/admin/TeacherManagement";
-import { ModificationRequests } from "@/components/admin/ModificationRequests";
-import { AssignmentManagement } from "@/components/admin/AssignmentManagement";
-import { TeacherImportAndStatus } from "@/components/admin/TeacherImportAndStatus";
-import { ProposalManagement } from "@/components/admin/ProposalManagement";
-import { CourseProposalManagement } from "@/components/admin/CourseProposalManagement";
-import { CourseImportDialog } from "@/components/admin/CourseImportDialog";
-import { ProposalReviewPanel } from "@/components/admin/ProposalReviewPanel";
-import { DatabaseTestPanel } from "@/components/admin/DatabaseTestPanel";
-import { EmailTestPanel } from "@/components/admin/EmailTestPanel";
-import { AdminDashboard } from "@/components/admin/AdminDashboard";
-import { UnifiedCourseManagement } from "@/components/admin/UnifiedCourseManagement";
-import { UnifiedTeacherManagement } from "@/components/admin/UnifiedTeacherManagement";
-import { UnifiedToolsPanel } from "@/components/admin/UnifiedToolsPanel";
 import { ErrorBoundary, DefaultErrorFallback } from "@/components/ErrorBoundary";
 import { AdminNotifications } from '@/components/admin/AdminNotifications';
-import { AttributionImportPanel } from "@/components/admin/AttributionImportPanel";
-import { ImportedCoursesPanel } from "@/components/admin/ImportedCoursesPanel";
+
+// Lazy-load des composants admin lourds
+const AdminDashboard = lazy(() => import("@/components/admin/AdminDashboard").then(m => ({ default: m.AdminDashboard })));
+const UnifiedCourseManagement = lazy(() => import("@/components/admin/UnifiedCourseManagement").then(m => ({ default: m.UnifiedCourseManagement })));
+const UnifiedTeacherManagement = lazy(() => import("@/components/admin/UnifiedTeacherManagement").then(m => ({ default: m.UnifiedTeacherManagement })));
+const UnifiedToolsPanel = lazy(() => import("@/components/admin/UnifiedToolsPanel").then(m => ({ default: m.UnifiedToolsPanel })));
+const TeacherImportAndStatus = lazy(() => import("@/components/admin/TeacherImportAndStatus").then(m => ({ default: m.TeacherImportAndStatus })));
+const ProposalManagement = lazy(() => import("@/components/admin/ProposalManagement").then(m => ({ default: m.ProposalManagement })));
+const CourseProposalManagement = lazy(() => import("@/components/admin/CourseProposalManagement").then(m => ({ default: m.CourseProposalManagement })));
+const ProposalReviewPanel = lazy(() => import("@/components/admin/ProposalReviewPanel").then(m => ({ default: m.ProposalReviewPanel })));
+const AssignmentManagement = lazy(() => import("@/components/admin/AssignmentManagement").then(m => ({ default: m.AssignmentManagement })));
+const ModificationRequests = lazy(() => import("@/components/admin/ModificationRequests").then(m => ({ default: m.ModificationRequests })));
+const AttributionImportPanel = lazy(() => import("@/components/admin/AttributionImportPanel").then(m => ({ default: m.AttributionImportPanel })));
+const ImportedCoursesPanel = lazy(() => import("@/components/admin/ImportedCoursesPanel").then(m => ({ default: m.ImportedCoursesPanel })));
+const DatabaseTestPanel = lazy(() => import("@/components/admin/DatabaseTestPanel").then(m => ({ default: m.DatabaseTestPanel })));
+const EmailTestPanel = lazy(() => import("@/components/admin/EmailTestPanel").then(m => ({ default: m.EmailTestPanel })));
+
+const LoadingFallback = () => (
+  <div className="flex items-center justify-center py-12">
+    <LoadingSpinner size="lg" text="Chargement..." />
+  </div>
+);
 
 const Admin = () => {
   const [password, setPassword] = useState("");
@@ -164,37 +172,37 @@ const Admin = () => {
   const renderContent = () => {
     switch (activeTab) {
       case 'dashboard':
-        return <AdminDashboard />;
+        return <Suspense fallback={<LoadingFallback />}><AdminDashboard /></Suspense>;
       case 'activity':
         return <div className="text-center py-8">
           <p className="text-gray-600">Page des activités récentes en cours de développement</p>
         </div>;
       case 'teachers':
-        return <UnifiedTeacherManagement />;
+        return <Suspense fallback={<LoadingFallback />}><UnifiedTeacherManagement /></Suspense>;
       case 'teacher-import':
-        return <TeacherImportAndStatus />;
+        return <Suspense fallback={<LoadingFallback />}><TeacherImportAndStatus /></Suspense>;
       case 'proposals':
-        return <ProposalManagement />;
+        return <Suspense fallback={<LoadingFallback />}><ProposalManagement /></Suspense>;
       case 'proposal-review':
-        return <ProposalReviewPanel />;
+        return <Suspense fallback={<LoadingFallback />}><ProposalReviewPanel /></Suspense>;
       case 'database-test':
-        return <DatabaseTestPanel />;
+        return <Suspense fallback={<LoadingFallback />}><DatabaseTestPanel /></Suspense>;
       case 'email-test':
-        return <EmailTestPanel />;
+        return <Suspense fallback={<LoadingFallback />}><EmailTestPanel /></Suspense>;
       case 'courses-proposals':
-        return <CourseProposalManagement />;
+        return <Suspense fallback={<LoadingFallback />}><CourseProposalManagement /></Suspense>;
       case 'assignments':
-        return <AssignmentManagement />;
+        return <Suspense fallback={<LoadingFallback />}><AssignmentManagement /></Suspense>;
       case 'requests':
-        return <ModificationRequests />;
+        return <Suspense fallback={<LoadingFallback />}><ModificationRequests /></Suspense>;
       case 'courses-management':
-        return <UnifiedCourseManagement />;
+        return <Suspense fallback={<LoadingFallback />}><UnifiedCourseManagement /></Suspense>;
       case 'tools':
-        return <UnifiedToolsPanel />;
+        return <Suspense fallback={<LoadingFallback />}><UnifiedToolsPanel /></Suspense>;
       case 'attribution-import':
-        return <AttributionImportPanel />;
+        return <Suspense fallback={<LoadingFallback />}><AttributionImportPanel /></Suspense>;
       case 'imported-courses':
-        return <ImportedCoursesPanel />;
+        return <Suspense fallback={<LoadingFallback />}><ImportedCoursesPanel /></Suspense>;
       case 'settings':
         return <div className="text-center py-8">
           <p className="text-gray-600">Page des paramètres en cours de développement</p>
@@ -204,7 +212,7 @@ const Admin = () => {
           <p className="text-gray-600">Page d'aide et support en cours de développement</p>
         </div>;
       default:
-        return <AdminDashboard />;
+        return <Suspense fallback={<LoadingFallback />}><AdminDashboard /></Suspense>;
     }
   };
 

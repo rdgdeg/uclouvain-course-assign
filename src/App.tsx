@@ -67,7 +67,9 @@ const App: React.FC = () => {
             <Route path="/cours-vacants" element={<CourseVacancy />} />
             <Route path="/admin" element={
               <AppAuth>
-                <Admin />
+                <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><LoadingSpinner size="lg" text="Chargement de l'administration..." /></div>}>
+                  <Admin />
+                </Suspense>
               </AppAuth>
             } />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

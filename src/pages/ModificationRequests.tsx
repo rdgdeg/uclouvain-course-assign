@@ -150,7 +150,7 @@ const ModificationRequests: React.FC = () => {
         {/* Informations sur les résultats */}
         <div className="flex justify-between items-center text-sm text-muted-foreground">
           <span>
-            Affichage de {startIndex + 1} à {Math.min(startIndex + itemsPerPage, totalItems)} sur {totalItems} cours
+            Affichage de {(currentPage - 1) * itemsPerPage + 1} à {Math.min(currentPage * itemsPerPage, totalItems)} sur {totalItems} cours
           </span>
           <span>{totalPages} page{totalPages > 1 ? 's' : ''}</span>
         </div>

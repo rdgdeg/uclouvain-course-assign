@@ -146,10 +146,16 @@ export const AttributionImportDialog: React.FC<{
                    (lowerHeader.includes('vol2') && lowerHeader.includes('total'));
         } else if (col.key === 'vol1_hours') {
           matched = lowerHeader.includes('vol1. attribution') || 
-                   (lowerHeader.includes('vol1') && lowerHeader.includes('attribution'));
+                   (lowerHeader.includes('vol1') && lowerHeader.includes('attribution')) ||
+                   lowerHeader.includes('vol1. enseignant') ||
+                   (lowerHeader.includes('vol1') && lowerHeader.includes('enseignant'));
         } else if (col.key === 'vol2_hours') {
           matched = lowerHeader.includes('vol2. attribution') || 
-                   (lowerHeader.includes('vol2') && lowerHeader.includes('attribution'));
+                   (lowerHeader.includes('vol2') && lowerHeader.includes('attribution')) ||
+                   lowerHeader.includes('vol2. enseignant') ||
+                   (lowerHeader.includes('vol2') && lowerHeader.includes('enseignant'));
+        } else if (col.key === 'enseignant') {
+          matched = lowerHeader === 'enseignant' || lowerHeader.includes('enseignant');
         } else if (col.key === 'dpt_charge') {
           matched = lowerHeader.includes('dpt charge') || lowerHeader.includes('dpt. charge') ||
                    lowerHeader === 'dpt charge';
@@ -345,6 +351,9 @@ export const AttributionImportDialog: React.FC<{
                 // Gérer les valeurs #VALEUR! en les convertissant en 0
                 if (value === '#VALEUR!' || value === '#VALUE!' || value === null || value === undefined) {
                   (attribution as any)[key] = 0;
+                } else if (typeof value === 'string') {
+                  const normalized = value.replace(',', '.');
+                  (attribution as any)[key] = parseFloat(normalized) || 0;
                 } else {
                   (attribution as any)[key] = parseFloat(value) || 0;
                 }
@@ -522,6 +531,20 @@ export const AttributionImportDialog: React.FC<{
 
           // 2. Traiter les enseignants et attributions
           for (const attribution of courseAttributions) {
+            const fullName = `${attribution.prenom || ''} ${attribution.nom || ''}`.trim();
+            const enseignantValue = attribution.enseignant || '';
+            const isNonAttr = [fullName, attribution.nom, attribution.prenom, enseignantValue]
+              .filter(Boolean)
+              .some(value => {
+                const normalized = value.toString().toLowerCase().replace(/\s+/g, ' ').trim();
+                return normalized === 'non attr.' || normalized === 'non attr' || normalized === 'non attribué' || normalized === 'non attribue';
+              });
+
+            // Ignorer les lignes "Non Attr." (volume non attribué)
+            if (isNonAttr) {
+              continue;
+            }
+
             // Vérifier si l'enseignant a des données valides 
             if (!attribution.nom || !attribution.prenom) {
               console.log(`Skipping attribution - missing teacher name: ${JSON.stringify(attribution)}`);

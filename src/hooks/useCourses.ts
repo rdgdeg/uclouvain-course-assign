@@ -118,44 +118,6 @@ export const useCourses = (options: FetchCoursesOptions = {}) => {
     queryClient.invalidateQueries({ queryKey: ['courses'] });
   };
 
-  const updateCourseStatus = async (courseId: number, vacant: boolean) => {
-    try {
-      const { error } = await supabase
-        .from('courses')
-        .update({ vacant })
-        .eq('id', courseId);
-
-      if (error) {
-        console.error('Erreur lors de la mise à jour:', error);
-        throw new Error(`Erreur de mise à jour: ${error.message}`);
-      }
-
-      // Mise à jour optimiste de l'état local
-      setCourses(prev => prev.map(course => 
-        course.id === courseId ? { ...course, vacant } : course
-      ));
-
-      toast({
-        title: "Statut mis à jour",
-        description: `Cours marqué comme ${vacant ? 'vacant' : 'non vacant'}`,
-        duration: 3000,
-      });
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue';
-      console.error('Error updating course status:', error);
-      
-      toast({
-        title: "Erreur de mise à jour",
-        description: errorMessage,
-        variant: "destructive",
-        duration: 5000,
-      });
-      
-      // Recharger les données en cas d'erreur
-      await fetchCourses();
-    }
-  };
-
   const validateHourDistribution = (course: Course): { isValid: boolean; message?: string } => {
     if (!course.assignments || course.assignments.length === 0) {
       return {

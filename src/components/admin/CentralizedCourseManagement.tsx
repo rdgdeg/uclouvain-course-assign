@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -80,7 +80,7 @@ export const CentralizedCourseManagement: React.FC = () => {
     attributionFaculty: "all",
     school: "all",
     status: "all",
-    academicYear: "2026-2027",
+    academicYear: "all", // Par défaut, afficher toutes les années
     search: ""
   });
   
@@ -94,13 +94,13 @@ export const CentralizedCourseManagement: React.FC = () => {
   const [isAssignmentDialogOpen, setIsAssignmentDialogOpen] = useState(false);
   const [expandedCourses, setExpandedCourses] = useState<string[]>([]);
   
-  // Pagination state
+  // Pagination state (locale uniquement)
   const [page, setPage] = useState(1);
-  const pageSize = 20; // Augmenté pour réduire les requêtes
+  const pageSize = 20;
 
-  // Récupérer les cours avec filtres côté serveur, colonnes limitées et pagination
+  // Récupérer TOUS les cours (sans pagination serveur pour permettre filtrage complet)
   const { data: coursesData, isLoading } = useQuery({
-    queryKey: ['centralized-courses', filters.academicYear, filters.faculty, filters.status, filters.search, page],
+    queryKey: ['centralized-courses-all', filters.academicYear, filters.faculty, filters.search],
     queryFn: async () => {
       let query = supabase
         .from('courses')
@@ -149,10 +149,14 @@ export const CentralizedCourseManagement: React.FC = () => {
               email
             )
           )
-        `, { count: 'exact' })
-        .eq('academic_year', filters.academicYear);
+        `);
 
-      // Filtrer côté serveur
+      // Filtrer par année académique seulement si spécifiée
+      if (filters.academicYear && filters.academicYear !== 'all') {
+        query = query.eq('academic_year', filters.academicYear);
+      }
+
+      // Filtrer côté serveur (faculty et search)
       if (filters.faculty !== 'all') {
         query = query.eq('faculty', filters.faculty);
       }
@@ -160,20 +164,16 @@ export const CentralizedCourseManagement: React.FC = () => {
         query = query.or(`title.ilike.%${filters.search}%,code.ilike.%${filters.search}%`);
       }
 
-      // Pagination côté serveur
-      const startIndex = (page - 1) * pageSize;
-      query = query.range(startIndex, startIndex + pageSize - 1);
       query = query.order('title');
 
-      const { data, error, count } = await query;
+      const { data, error } = await query;
       if (error) throw error;
-      return { data: data || [], total: count || 0 };
+      return data || [];
     },
     staleTime: 30000, // Cache 30 secondes
   });
 
-  const courses = coursesData?.data || [];
-  const totalCourses = coursesData?.total || 0;
+  const courses = coursesData || [];
 
   // Après récupération des cours, on mappe pour garantir la présence de 'school'
   const normalizedCourses = courses.map((course: any) => ({
@@ -367,8 +367,14 @@ export const CentralizedCourseManagement: React.FC = () => {
     return filtered;
   }, [coursesWithStatus, filters, sort]);
 
-  const totalPages = Math.ceil(totalCourses / pageSize);
-  const paginatedCourses = filteredAndSortedCourses;
+  // Pagination locale sur les cours filtrés et triés (après filtrage côté client)
+  const totalPages = Math.ceil(filteredAndSortedCourses.length / pageSize);
+  const paginatedCourses = filteredAndSortedCourses.slice((page - 1) * pageSize, page * pageSize);
+  
+  // Réinitialiser la page quand les filtres changent
+  useEffect(() => {
+    setPage(1);
+  }, [filters.academicYear, filters.faculty, filters.status, filters.search, filters.attributionFaculty, filters.school]);
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -575,13 +581,30 @@ export const CentralizedCourseManagement: React.FC = () => {
           <CardTitle>Filtres et Recherche</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-7 gap-4">
             <Input
               placeholder="Rechercher par titre ou code..."
               value={filters.search}
               onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
               className="md:col-span-2"
             />
+            <Select
+              value={filters.academicYear}
+              onValueChange={(value) => {
+                setFilters(prev => ({ ...prev, academicYear: value }));
+                setPage(1); // Réinitialiser la pagination
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Année académique" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Toutes les années</SelectItem>
+                {Array.from(new Set(normalizedCourses.map(c => c.academic_year).filter(Boolean))).sort().reverse().map(year => (
+                  <SelectItem key={year} value={year}>{year}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <Select
               value={filters.faculty}
               onValueChange={(value) => setFilters(prev => ({ ...prev, faculty: value }))}
@@ -668,6 +691,24 @@ export const CentralizedCourseManagement: React.FC = () => {
             <CourseCardSkeleton key={i} />
           ))}
         </div>
+      ) : filteredAndSortedCourses.length === 0 ? (
+        <Card>
+          <CardContent className="p-8 text-center">
+            <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+            <h3 className="text-lg font-semibold mb-2">Aucun cours trouvé</h3>
+            <p className="text-muted-foreground mb-4">
+              {courses.length === 0 
+                ? "Aucun cours n'a été importé. Utilisez l'import pour ajouter des cours."
+                : "Aucun cours ne correspond aux filtres sélectionnés. Essayez de modifier vos critères de recherche."}
+            </p>
+            {courses.length === 0 && (
+              <Button onClick={() => queryClient.invalidateQueries({ queryKey: ['centralized-courses'] })}>
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Actualiser
+              </Button>
+            )}
+          </CardContent>
+        </Card>
       ) : (
         <>
           <div className="space-y-4">
@@ -921,13 +962,15 @@ export const CentralizedCourseManagement: React.FC = () => {
             ))}
           </div>
           {/* Pagination */}
-          <div className="flex justify-center items-center gap-2 mt-6">
-            <Button variant="outline" size="sm" onClick={() => setPage(1)} disabled={page === 1}>«</Button>
-            <Button variant="outline" size="sm" onClick={() => setPage(page - 1)} disabled={page === 1}>‹</Button>
-            <span className="px-2 text-sm">Page {page} / {totalPages}</span>
-            <Button variant="outline" size="sm" onClick={() => setPage(page + 1)} disabled={page === totalPages}>›</Button>
-            <Button variant="outline" size="sm" onClick={() => setPage(totalPages)} disabled={page === totalPages}>»</Button>
-          </div>
+          {totalPages > 1 && (
+            <div className="flex justify-center items-center gap-2 mt-6">
+              <Button variant="outline" size="sm" onClick={() => setPage(1)} disabled={page === 1}>«</Button>
+              <Button variant="outline" size="sm" onClick={() => setPage(page - 1)} disabled={page === 1}>‹</Button>
+              <span className="px-2 text-sm">Page {page} / {totalPages} ({filteredAndSortedCourses.length} cours au total)</span>
+              <Button variant="outline" size="sm" onClick={() => setPage(page + 1)} disabled={page === totalPages}>›</Button>
+              <Button variant="outline" size="sm" onClick={() => setPage(totalPages)} disabled={page === totalPages}>»</Button>
+            </div>
+          )}
         </>
       )}
 

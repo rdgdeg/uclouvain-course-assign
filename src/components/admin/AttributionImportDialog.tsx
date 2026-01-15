@@ -87,6 +87,7 @@ const EXPECTED_COLUMNS: Array<{ key: keyof AttributionData; label: string; requi
   { key: 'type', label: 'Type', required: false },
   { key: 'nom', label: 'Nom enseignant', required: true },
   { key: 'prenom', label: 'Prénom enseignant', required: true },
+  { key: 'enseignant', label: 'Enseignant (nom complet)', required: false },
   { key: 'email_ucl', label: 'Email UCL', required: false },
   { key: 'fonction', label: 'Fonction', required: false },
   { key: 'supplee', label: 'Supplée', required: false },
@@ -310,9 +311,19 @@ export const AttributionImportDialog: React.FC<{
 
           // Vérifier les colonnes requises
           const requiredColumns = EXPECTED_COLUMNS.filter(col => col.required);
-          const missingRequired = requiredColumns.filter(col => !columnIndices[col.key]);
-          if (missingRequired.length > 0) {
-            reject(new Error(`Colonnes requises manquantes : ${missingRequired.map(c => c.label).join(', ')}`));
+          const missingRequired = requiredColumns.filter(col => columnIndices[col.key] === undefined);
+          const hasNom = columnIndices.nom !== undefined;
+          const hasPrenom = columnIndices.prenom !== undefined;
+          const hasEnseignant = columnIndices.enseignant !== undefined;
+
+          // Autoriser Nom/Prénom OU Enseignant (nom complet)
+          const missingNameColumns = (!hasNom || !hasPrenom) && !hasEnseignant;
+          if (missingRequired.length > 0 || missingNameColumns) {
+            const missingLabels = missingRequired.map(c => c.label);
+            if (missingNameColumns) {
+              missingLabels.push('Nom/Prénom enseignant ou colonne Enseignant');
+            }
+            reject(new Error(`Colonnes requises manquantes : ${missingLabels.join(', ')}`));
             return;
           }
 
@@ -341,6 +352,21 @@ export const AttributionImportDialog: React.FC<{
                 (attribution as any)[key] = value?.toString() || '';
               }
             });
+
+            // Si Nom/Prénom manquent mais colonne "Enseignant" présente, extraire le nom complet
+            if ((!attribution.nom || !attribution.prenom) && attribution.enseignant) {
+              const fullName = attribution.enseignant.trim();
+              if (fullName) {
+                const parts = fullName.split(/\s+/);
+                if (parts.length === 1) {
+                  attribution.prenom = parts[0];
+                  attribution.nom = '';
+                } else {
+                  attribution.prenom = parts[0];
+                  attribution.nom = parts.slice(1).join(' ');
+                }
+              }
+            }
 
             if (attribution.cours && attribution.cours.trim()) {
               attributions.push(attribution as AttributionData);
@@ -542,7 +568,7 @@ export const AttributionImportDialog: React.FC<{
               teacher_id: teacherId,
               vol1_hours: attribution.vol1_hours || 0,
               vol2_hours: attribution.vol2_hours || 0,
-              assignment_type: attribution.fonction || 'standard',
+              assignment_type: attribution.fonction || 'Cotitulaire',
               notes: [
                 attribution.remarque,
                 attribution.rem_spec,

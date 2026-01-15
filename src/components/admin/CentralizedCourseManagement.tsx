@@ -83,6 +83,7 @@ export const CentralizedCourseManagement: React.FC = () => {
     academicYear: "all", // Par défaut, afficher toutes les années
     search: ""
   });
+  const [searchInput, setSearchInput] = useState("");
   
   const [sort, setSort] = useState<CourseSort>({
     field: "title",
@@ -408,6 +409,14 @@ export const CentralizedCourseManagement: React.FC = () => {
     return filtered;
   }, [coursesWithStatus, filters, sort]);
 
+  // Débouncer la recherche pour éviter un rafraîchissement à chaque lettre
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setFilters(prev => ({ ...prev, search: searchInput }));
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
+
   // Pagination locale sur les cours filtrés et triés (après filtrage côté client)
   const totalPages = Math.ceil(filteredAndSortedCourses.length / pageSize);
   const paginatedCourses = filteredAndSortedCourses.slice((page - 1) * pageSize, page * pageSize);
@@ -623,92 +632,109 @@ export const CentralizedCourseManagement: React.FC = () => {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-7 gap-4">
-            <Input
-              placeholder="Rechercher par titre ou code..."
-              value={filters.search}
-              onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
-              className="md:col-span-2"
-            />
-            <Select
-              value={filters.academicYear}
-              onValueChange={(value) => {
-                setFilters(prev => ({ ...prev, academicYear: value }));
-                setPage(1); // Réinitialiser la pagination
-              }}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Année académique" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Toutes les années</SelectItem>
-                {Array.from(new Set(normalizedCourses.map(c => c.academic_year).filter(Boolean))).sort().reverse().map(year => (
-                  <SelectItem key={year} value={year}>{year}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select
-              value={filters.faculty}
-              onValueChange={(value) => setFilters(prev => ({ ...prev, faculty: value }))}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Faculté cours" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Toutes les facultés</SelectItem>
-                {Array.from(new Set(normalizedCourses.map(c => c.faculty).filter(Boolean))).map(faculty => (
-                  <SelectItem key={faculty} value={faculty}>{faculty}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select
-              value={filters.attributionFaculty}
-              onValueChange={(value) => setFilters(prev => ({ ...prev, attributionFaculty: value }))}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Faculté attribution" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Toutes les facultés</SelectItem>
-                {Array.from(new Set(
-                  coursesWithStatus.flatMap(c => 
-                    c.allTeachers?.map((t: any) => t.faculty || c.faculty).filter(Boolean) || [c.faculty].filter(Boolean)
-                  )
-                )).map(faculty => (
-                  <SelectItem key={faculty} value={faculty}>{faculty}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select
-              value={filters.status}
-              onValueChange={(value: any) => setFilters(prev => ({ ...prev, status: value }))}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Statut" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tous les statuts</SelectItem>
-                <SelectItem value="vacant">Vacants</SelectItem>
-                <SelectItem value="partial">Partiellement vacants</SelectItem>
-                <SelectItem value="assigned">Attribués</SelectItem>
-                <SelectItem value="with_issues">Avec problèmes</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select
-              value={sort.field}
-              onValueChange={(value: any) => setSort(prev => ({ ...prev, field: value }))}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Trier par" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="title">Titre</SelectItem>
-                <SelectItem value="code">Code</SelectItem>
-                <SelectItem value="faculty">Faculté</SelectItem>
-                <SelectItem value="vacant">Statut</SelectItem>
-                <SelectItem value="assignments">Enseignants</SelectItem>
-                <SelectItem value="volume">Volume</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="space-y-1 md:col-span-2">
+              <Label className="text-xs text-muted-foreground">Recherche</Label>
+              <Input
+                placeholder="Rechercher par titre ou code..."
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Année académique</Label>
+              <Select
+                value={filters.academicYear}
+                onValueChange={(value) => {
+                  setFilters(prev => ({ ...prev, academicYear: value }));
+                  setPage(1); // Réinitialiser la pagination
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Année académique" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Toutes les années</SelectItem>
+                  {Array.from(new Set(normalizedCourses.map(c => c.academic_year).filter(Boolean))).sort().reverse().map(year => (
+                    <SelectItem key={year} value={year}>{year}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Faculté cours</Label>
+              <Select
+                value={filters.faculty}
+                onValueChange={(value) => setFilters(prev => ({ ...prev, faculty: value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Faculté cours" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Toutes les facultés</SelectItem>
+                  {Array.from(new Set(normalizedCourses.map(c => c.faculty).filter(Boolean))).map(faculty => (
+                    <SelectItem key={faculty} value={faculty}>{faculty}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Faculté attribution</Label>
+              <Select
+                value={filters.attributionFaculty}
+                onValueChange={(value) => setFilters(prev => ({ ...prev, attributionFaculty: value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Faculté attribution" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Toutes les facultés</SelectItem>
+                  {Array.from(new Set(
+                    coursesWithStatus.flatMap(c => 
+                      c.allTeachers?.map((t: any) => t.faculty || c.faculty).filter(Boolean) || [c.faculty].filter(Boolean)
+                    )
+                  )).map(faculty => (
+                    <SelectItem key={faculty} value={faculty}>{faculty}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Statut</Label>
+              <Select
+                value={filters.status}
+                onValueChange={(value: any) => setFilters(prev => ({ ...prev, status: value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Statut" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tous les statuts</SelectItem>
+                  <SelectItem value="vacant">Vacants</SelectItem>
+                  <SelectItem value="partial">Partiellement vacants</SelectItem>
+                  <SelectItem value="assigned">Attribués</SelectItem>
+                  <SelectItem value="with_issues">Avec problèmes</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Tri</Label>
+              <Select
+                value={sort.field}
+                onValueChange={(value: any) => setSort(prev => ({ ...prev, field: value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Trier par" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="title">Titre</SelectItem>
+                  <SelectItem value="code">Code</SelectItem>
+                  <SelectItem value="faculty">Faculté</SelectItem>
+                  <SelectItem value="vacant">Statut</SelectItem>
+                  <SelectItem value="assignments">Enseignants</SelectItem>
+                  <SelectItem value="volume">Volume</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           <div className="flex items-center gap-2 mt-4">
             <Button
@@ -888,7 +914,7 @@ export const CentralizedCourseManagement: React.FC = () => {
                                           ) : assignment.assignment_type ? (
                                             <Badge variant="secondary">{assignment.assignment_type}</Badge>
                                           ) : (
-                                            <Badge variant="secondary">Enseignant</Badge>
+                                          <Badge variant="secondary">Cotitulaire</Badge>
                                           )
                                         ) : (
                                           <Badge variant="outline" className="text-muted-foreground">Non attribué</Badge>
@@ -1205,7 +1231,7 @@ export const CentralizedCourseManagement: React.FC = () => {
                               ) : assignment.assignment_type ? (
                                 <Badge variant="secondary">{assignment.assignment_type}</Badge>
                               ) : (
-                                <Badge variant="secondary">Enseignant</Badge>
+                                <Badge variant="secondary">Cotitulaire</Badge>
                               )}
                             </TableCell>
                             <TableCell>

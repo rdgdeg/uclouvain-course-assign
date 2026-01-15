@@ -170,37 +170,37 @@ const Admin = () => {
   const renderContent = () => {
     switch (activeTab) {
       case 'dashboard':
-        return <Suspense fallback={<LoadingFallback />}><AdminDashboard /></Suspense>;
+        return <React.Suspense fallback={<LoadingFallback />}><AdminDashboard /></React.Suspense>;
       case 'activity':
         return <div className="text-center py-8">
           <p className="text-gray-600">Page des activités récentes en cours de développement</p>
         </div>;
       case 'teachers':
-        return <Suspense fallback={<LoadingFallback />}><UnifiedTeacherManagement /></Suspense>;
+        return <React.Suspense fallback={<LoadingFallback />}><UnifiedTeacherManagement /></React.Suspense>;
       case 'teacher-import':
-        return <Suspense fallback={<LoadingFallback />}><TeacherImportAndStatus /></Suspense>;
+        return <React.Suspense fallback={<LoadingFallback />}><TeacherImportAndStatus /></React.Suspense>;
       case 'proposals':
-        return <Suspense fallback={<LoadingFallback />}><ProposalManagement /></Suspense>;
+        return <React.Suspense fallback={<LoadingFallback />}><ProposalManagement /></React.Suspense>;
       case 'proposal-review':
-        return <Suspense fallback={<LoadingFallback />}><ProposalReviewPanel /></Suspense>;
+        return <React.Suspense fallback={<LoadingFallback />}><ProposalReviewPanel /></React.Suspense>;
       case 'database-test':
-        return <Suspense fallback={<LoadingFallback />}><DatabaseTestPanel /></Suspense>;
+        return <React.Suspense fallback={<LoadingFallback />}><DatabaseTestPanel /></React.Suspense>;
       case 'email-test':
-        return <Suspense fallback={<LoadingFallback />}><EmailTestPanel /></Suspense>;
+        return <React.Suspense fallback={<LoadingFallback />}><EmailTestPanel /></React.Suspense>;
       case 'courses-proposals':
-        return <Suspense fallback={<LoadingFallback />}><CourseProposalManagement /></Suspense>;
+        return <React.Suspense fallback={<LoadingFallback />}><CourseProposalManagement /></React.Suspense>;
       case 'assignments':
-        return <Suspense fallback={<LoadingFallback />}><AssignmentManagement /></Suspense>;
+        return <React.Suspense fallback={<LoadingFallback />}><AssignmentManagement /></React.Suspense>;
       case 'requests':
-        return <Suspense fallback={<LoadingFallback />}><ModificationRequests /></Suspense>;
+        return <React.Suspense fallback={<LoadingFallback />}><ModificationRequests /></React.Suspense>;
       case 'courses-management':
-        return <Suspense fallback={<LoadingFallback />}><CentralizedCourseManagement /></Suspense>;
+        return <React.Suspense fallback={<LoadingFallback />}><CentralizedCourseManagement /></React.Suspense>;
       case 'tools':
-        return <Suspense fallback={<LoadingFallback />}><UnifiedToolsPanel /></Suspense>;
+        return <React.Suspense fallback={<LoadingFallback />}><UnifiedToolsPanel /></React.Suspense>;
       case 'attribution-import':
-        return <Suspense fallback={<LoadingFallback />}><AttributionImportPanel /></Suspense>;
+        return <React.Suspense fallback={<LoadingFallback />}><AttributionImportPanel /></React.Suspense>;
       case 'imported-courses':
-        return <Suspense fallback={<LoadingFallback />}><ImportedCoursesPanel /></Suspense>;
+        return <React.Suspense fallback={<LoadingFallback />}><ImportedCoursesPanel /></React.Suspense>;
       case 'settings':
         return <div className="text-center py-8">
           <p className="text-gray-600">Page des paramètres en cours de développement</p>
@@ -210,7 +210,7 @@ const Admin = () => {
           <p className="text-gray-600">Page d'aide et support en cours de développement</p>
         </div>;
       default:
-        return <Suspense fallback={<LoadingFallback />}><AdminDashboard /></Suspense>;
+        return <React.Suspense fallback={<LoadingFallback />}><AdminDashboard /></React.Suspense>;
     }
   };
 

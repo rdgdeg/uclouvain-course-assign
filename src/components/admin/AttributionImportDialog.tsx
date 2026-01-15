@@ -6,7 +6,6 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Upload, AlertCircle, CheckCircle, Download, Settings } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import * as XLSX from 'xlsx';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -111,6 +110,7 @@ export const AttributionImportDialog: React.FC<{
   const [columnMapping, setColumnMapping] = useState<Record<keyof AttributionData, string>>({} as Record<keyof AttributionData, string>);
   const [showMapping, setShowMapping] = useState(false);
   const [previewData, setPreviewData] = useState<any[]>([]);
+  const [isParsingHeaders, setIsParsingHeaders] = useState(false);
   const [overwriteExisting, setOverwriteExisting] = useState(false);
   const [importProgress, setImportProgress] = useState(0);
   const { toast } = useToast();
@@ -229,6 +229,8 @@ export const AttributionImportDialog: React.FC<{
       
       // Lire les en-têtes du fichier
       try {
+        setIsParsingHeaders(true);
+        const XLSX = await import('xlsx');
         const reader = new FileReader();
         reader.onload = (event) => {
           try {
@@ -267,13 +269,23 @@ export const AttributionImportDialog: React.FC<{
             
             // Afficher l'interface de mapping
             setShowMapping(true);
+            setIsParsingHeaders(false);
           } catch (error) {
             toast({
               title: "Erreur de lecture",
               description: "Impossible de lire le fichier",
               variant: "destructive"
             });
+            setIsParsingHeaders(false);
           }
+        };
+        reader.onerror = () => {
+          toast({
+            title: "Erreur de lecture",
+            description: "Impossible de lire le fichier",
+            variant: "destructive"
+          });
+          setIsParsingHeaders(false);
         };
         reader.readAsArrayBuffer(file);
       } catch (error) {
@@ -282,114 +294,121 @@ export const AttributionImportDialog: React.FC<{
           description: "Impossible de charger le fichier",
           variant: "destructive"
         });
+        setIsParsingHeaders(false);
       }
     }
   };
 
   const parseExcelFile = async (file: File, customMapping: Record<keyof AttributionData, string>): Promise<AttributionData[]> => {
     return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        try {
-          const data = new Uint8Array(e.target?.result as ArrayBuffer);
-          const workbook = XLSX.read(data, { type: 'array' });
-          const firstSheetName = workbook.SheetNames[0];
-          const worksheet = workbook.Sheets[firstSheetName];
-          const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-          
-          if (jsonData.length < 2) {
-            reject(new Error('Le fichier doit contenir au moins une ligne d\'en-tête et une ligne de données'));
-            return;
-          }
-
-          const headers = (jsonData[0] as string[]).map(h => h?.toString().trim() || '');
-          const attributions: AttributionData[] = [];
-
-          // Créer un mapping des indices basé sur le mapping personnalisé
-          const columnIndices: { [key: string]: number } = {};
-          Object.entries(customMapping).forEach(([expectedKey, fileHeader]) => {
-            if (fileHeader) {
-              const index = headers.findIndex(h => h === fileHeader);
-              if (index !== -1) {
-                columnIndices[expectedKey] = index;
-              }
-            }
-          });
-
-          // Vérifier les colonnes requises
-          const requiredColumns = EXPECTED_COLUMNS.filter(col => col.required);
-          const missingRequired = requiredColumns.filter(col => columnIndices[col.key] === undefined);
-          const hasNom = columnIndices.nom !== undefined;
-          const hasPrenom = columnIndices.prenom !== undefined;
-          const hasEnseignant = columnIndices.enseignant !== undefined;
-
-          // Autoriser Nom/Prénom OU Enseignant (nom complet)
-          const missingNameColumns = (!hasNom || !hasPrenom) && !hasEnseignant;
-          if (missingRequired.length > 0 || missingNameColumns) {
-            const missingLabels = missingRequired.map(c => c.label);
-            if (missingNameColumns) {
-              missingLabels.push('Nom/Prénom enseignant ou colonne Enseignant');
-            }
-            reject(new Error(`Colonnes requises manquantes : ${missingLabels.join(', ')}`));
-            return;
-          }
-
-          // Parser les données
-          for (let i = 1; i < jsonData.length; i++) {
-            const row = jsonData[i] as any[];
-            if (!row || row.length === 0) continue;
-
-            const attribution: Partial<AttributionData> = {};
+      const loadAndParse = async () => {
+        const XLSX = await import('xlsx');
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          try {
+            const data = new Uint8Array(e.target?.result as ArrayBuffer);
+            const workbook = XLSX.read(data, { type: 'array' });
+            const firstSheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[firstSheetName];
+            const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
             
-            // Traiter les colonnes mappées
-            Object.keys(columnIndices).forEach(key => {
-              const index = columnIndices[key];
-              const value = row[index];
-              
-              // Colonnes numériques
-              if (key === 'vol1_total' || key === 'vol2_total' || key === 'vol1_old' || key === 'vol2_old' || 
-                  key === 'coef1' || key === 'coef2' || key === 'vol1_hours' || key === 'vol2_hours') {
-                // Gérer les valeurs #VALEUR! en les convertissant en 0
-                if (value === '#VALEUR!' || value === '#VALUE!' || value === null || value === undefined) {
-                  (attribution as any)[key] = 0;
-                } else if (typeof value === 'string') {
-                  const normalized = value.replace(',', '.');
-                  (attribution as any)[key] = parseFloat(normalized) || 0;
-                } else {
-                  (attribution as any)[key] = parseFloat(value) || 0;
+            if (jsonData.length < 2) {
+              reject(new Error('Le fichier doit contenir au moins une ligne d\'en-tête et une ligne de données'));
+              return;
+            }
+
+            const headers = (jsonData[0] as string[]).map(h => h?.toString().trim() || '');
+            const attributions: AttributionData[] = [];
+
+            // Créer un mapping des indices basé sur le mapping personnalisé
+            const columnIndices: { [key: string]: number } = {};
+            Object.entries(customMapping).forEach(([expectedKey, fileHeader]) => {
+              if (fileHeader) {
+                const index = headers.findIndex(h => h === fileHeader);
+                if (index !== -1) {
+                  columnIndices[expectedKey] = index;
                 }
-              } else {
-                (attribution as any)[key] = value?.toString() || '';
               }
             });
 
-            // Si Nom/Prénom manquent mais colonne "Enseignant" présente, extraire le nom complet
-            if ((!attribution.nom || !attribution.prenom) && attribution.enseignant) {
-              const fullName = attribution.enseignant.trim();
-              if (fullName) {
-                const parts = fullName.split(/\s+/);
-                if (parts.length === 1) {
-                  attribution.prenom = parts[0];
-                  attribution.nom = '';
+            // Vérifier les colonnes requises
+            const requiredColumns = EXPECTED_COLUMNS.filter(col => col.required);
+            const missingRequired = requiredColumns.filter(col => columnIndices[col.key] === undefined);
+            const hasNom = columnIndices.nom !== undefined;
+            const hasPrenom = columnIndices.prenom !== undefined;
+            const hasEnseignant = columnIndices.enseignant !== undefined;
+
+            // Autoriser Nom/Prénom OU Enseignant (nom complet)
+            const missingNameColumns = (!hasNom || !hasPrenom) && !hasEnseignant;
+            if (missingRequired.length > 0 || missingNameColumns) {
+              const missingLabels = missingRequired.map(c => c.label);
+              if (missingNameColumns) {
+                missingLabels.push('Nom/Prénom enseignant ou colonne Enseignant');
+              }
+              reject(new Error(`Colonnes requises manquantes : ${missingLabels.join(', ')}`));
+              return;
+            }
+
+            // Parser les données
+            for (let i = 1; i < jsonData.length; i++) {
+              const row = jsonData[i] as any[];
+              if (!row || row.length === 0) continue;
+
+              const attribution: Partial<AttributionData> = {};
+              
+              // Traiter les colonnes mappées
+              Object.keys(columnIndices).forEach(key => {
+                const index = columnIndices[key];
+                const value = row[index];
+                
+                // Colonnes numériques
+                if (key === 'vol1_total' || key === 'vol2_total' || key === 'vol1_old' || key === 'vol2_old' || 
+                    key === 'coef1' || key === 'coef2' || key === 'vol1_hours' || key === 'vol2_hours') {
+                  // Gérer les valeurs #VALEUR! en les convertissant en 0
+                  if (value === '#VALEUR!' || value === '#VALUE!' || value === null || value === undefined) {
+                    (attribution as any)[key] = 0;
+                  } else if (typeof value === 'string') {
+                    const normalized = value.replace(',', '.');
+                    (attribution as any)[key] = parseFloat(normalized) || 0;
+                  } else {
+                    (attribution as any)[key] = parseFloat(value) || 0;
+                  }
                 } else {
-                  attribution.prenom = parts[0];
-                  attribution.nom = parts.slice(1).join(' ');
+                  (attribution as any)[key] = value?.toString() || '';
                 }
+              });
+
+              // Si Nom/Prénom manquent mais colonne "Enseignant" présente, extraire le nom complet
+              if ((!attribution.nom || !attribution.prenom) && attribution.enseignant) {
+                const fullName = attribution.enseignant.trim();
+                if (fullName) {
+                  const parts = fullName.split(/\s+/);
+                  if (parts.length === 1) {
+                    attribution.prenom = parts[0];
+                    attribution.nom = '';
+                  } else {
+                    attribution.prenom = parts[0];
+                    attribution.nom = parts.slice(1).join(' ');
+                  }
+                }
+              }
+
+              if (attribution.cours && attribution.cours.trim()) {
+                attributions.push(attribution as AttributionData);
               }
             }
 
-            if (attribution.cours && attribution.cours.trim()) {
-              attributions.push(attribution as AttributionData);
-            }
+            resolve(attributions);
+          } catch (error) {
+            reject(error);
           }
-
-          resolve(attributions);
-        } catch (error) {
-          reject(error);
-        }
+        };
+        reader.onerror = () => reject(new Error('Erreur lors de la lecture du fichier'));
+        reader.readAsArrayBuffer(file);
       };
-      reader.onerror = () => reject(new Error('Erreur lors de la lecture du fichier'));
-      reader.readAsArrayBuffer(file);
+
+      loadAndParse().catch(reject);
+      return;
     });
   };
 
@@ -784,10 +803,16 @@ export const AttributionImportDialog: React.FC<{
                         type="file"
                         accept=".xlsx,.xls,.csv"
                         onChange={handleFileChange}
+                        disabled={isParsingHeaders}
                       />
                       {selectedFile && (
                         <p className="text-sm text-muted-foreground">
                           Fichier sélectionné : {selectedFile.name}
+                        </p>
+                      )}
+                      {isParsingHeaders && (
+                        <p className="text-xs text-muted-foreground">
+                          Analyse du fichier en cours...
                         </p>
                       )}
                     </div>

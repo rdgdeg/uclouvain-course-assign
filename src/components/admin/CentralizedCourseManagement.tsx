@@ -94,9 +94,13 @@ export const CentralizedCourseManagement: React.FC = () => {
   const [isAssignmentDialogOpen, setIsAssignmentDialogOpen] = useState(false);
   const [expandedCourses, setExpandedCourses] = useState<string[]>([]);
   
-  // Récupérer les cours avec filtres côté serveur et colonnes limitées
-  const { data: courses = [], isLoading } = useQuery({
-    queryKey: ['centralized-courses', filters.academicYear, filters.faculty, filters.status, filters.search],
+  // Pagination state
+  const [page, setPage] = useState(1);
+  const pageSize = 20; // Augmenté pour réduire les requêtes
+
+  // Récupérer les cours avec filtres côté serveur, colonnes limitées et pagination
+  const { data: coursesData, isLoading } = useQuery({
+    queryKey: ['centralized-courses', filters.academicYear, filters.faculty, filters.status, filters.search, page],
     queryFn: async () => {
       let query = supabase
         .from('courses')
@@ -145,7 +149,7 @@ export const CentralizedCourseManagement: React.FC = () => {
               email
             )
           )
-        `)
+        `, { count: 'exact' })
         .eq('academic_year', filters.academicYear);
 
       // Filtrer côté serveur
@@ -156,16 +160,22 @@ export const CentralizedCourseManagement: React.FC = () => {
         query = query.or(`title.ilike.%${filters.search}%,code.ilike.%${filters.search}%`);
       }
 
+      // Pagination côté serveur
+      const startIndex = (page - 1) * pageSize;
+      query = query.range(startIndex, startIndex + pageSize - 1);
       query = query.order('title');
 
-      const { data, error } = await query;
+      const { data, error, count } = await query;
       if (error) throw error;
-      return data || [];
+      return { data: data || [], total: count || 0 };
     },
     staleTime: 30000, // Cache 30 secondes
   });
 
-  // Après récupération des cours (data: courses = []), on mappe pour garantir la présence de 'school'
+  const courses = coursesData?.data || [];
+  const totalCourses = coursesData?.total || 0;
+
+  // Après récupération des cours, on mappe pour garantir la présence de 'school'
   const normalizedCourses = courses.map((course: any) => ({
     ...course,
     school: course.school ?? null,
@@ -273,22 +283,12 @@ export const CentralizedCourseManagement: React.FC = () => {
     });
   }, [normalizedCourses, modificationRequests]);
 
-  // Calcul des cours filtrés et triés
+  // Tri et filtrage côté client (sur les données paginées)
   const filteredAndSortedCourses = useMemo(() => {
-    let filtered = coursesWithStatus;
+    let filtered = [...coursesWithStatus];
 
-    // Filtre de recherche
-    if (filters.search) {
-      filtered = filtered.filter(course =>
-        course.title.toLowerCase().includes(filters.search.toLowerCase()) ||
-        (course.code || "").toLowerCase().includes(filters.search.toLowerCase())
-      );
-    }
-
-    // Filtre par faculté du cours
-    if (filters.faculty !== "all") {
-      filtered = filtered.filter(course => course.faculty === filters.faculty);
-    }
+    // Filtres supplémentaires côté client (attributionFaculty, status, school)
+    // Note: Les filtres faculty et search sont déjà appliqués côté serveur
 
     // Filtre par faculté d'attribution
     if (filters.attributionFaculty !== "all") {
@@ -367,11 +367,86 @@ export const CentralizedCourseManagement: React.FC = () => {
     return filtered;
   }, [coursesWithStatus, filters, sort]);
 
-  // Pagination state
-  const [page, setPage] = useState(1);
-  const pageSize = 10;
-  const totalPages = Math.ceil(filteredAndSortedCourses.length / pageSize);
-  const paginatedCourses = filteredAndSortedCourses.slice((page - 1) * pageSize, page * pageSize);
+  // Tri et filtrage côté client (sur les données paginées)
+  const filteredAndSortedCourses = useMemo(() => {
+    let filtered = [...coursesWithStatus];
+
+    // Filtre par faculté d'attribution
+    if (filters.attributionFaculty !== 'all') {
+      filtered = filtered.filter(course => {
+        const teachers = course.allTeachers || [];
+        return teachers.some((t: any) => (t.faculty || course.faculty) === filters.attributionFaculty);
+      });
+    }
+
+    // Filtre par statut
+    if (filters.status !== 'all') {
+      filtered = filtered.filter(course => {
+        switch (filters.status) {
+          case "vacant":
+            return course.status.vacant === 'full';
+          case "partial":
+            return course.status.vacant === 'partial';
+          case "assigned":
+            return course.status.vacant === 'none';
+          case "with_issues":
+            return course.status.hasIssues;
+          default:
+            return true;
+        }
+      });
+    }
+
+    // Filtre par école
+    if (filters.school !== 'all') {
+      filtered = filtered.filter(course => (course.school || course.subcategory) === filters.school);
+    }
+
+    // Tri
+    filtered.sort((a, b) => {
+      let aValue: any, bValue: any;
+
+      switch (sort.field) {
+        case "title":
+          aValue = a.title;
+          bValue = b.title;
+          break;
+        case "code":
+          aValue = a.code;
+          bValue = b.code;
+          break;
+        case "faculty":
+          aValue = a.faculty;
+          bValue = b.faculty;
+          break;
+        case "vacant":
+          aValue = a.status.vacant;
+          bValue = b.status.vacant;
+          break;
+        case "assignments":
+          aValue = a.status.assignments;
+          bValue = b.status.assignments;
+          break;
+        case "volume":
+          aValue = a.status.totalVolume;
+          bValue = b.status.totalVolume;
+          break;
+        default:
+          aValue = a.title;
+          bValue = b.title;
+      }
+
+      if (typeof aValue === 'string' && typeof bValue === 'string') {
+        return sort.direction === "asc" ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue);
+      }
+      return sort.direction === "asc" ? (aValue > bValue ? 1 : -1) : (aValue < bValue ? 1 : -1);
+    });
+
+    return filtered;
+  }, [coursesWithStatus, filters, sort]);
+
+  const totalPages = Math.ceil(totalCourses / pageSize);
+  const paginatedCourses = filteredAndSortedCourses;
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -415,7 +490,11 @@ export const CentralizedCourseManagement: React.FC = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['centralized-courses'] });
-      toast({ title: "Succès", description: "Cours mis à jour avec succès." });
+      toast({ 
+        title: "Succès", 
+        description: "Cours mis à jour avec succès.",
+        duration: 2000
+      });
       setIsEditDialogOpen(false);
     },
     onError: (error) => {
@@ -440,7 +519,11 @@ export const CentralizedCourseManagement: React.FC = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['centralized-courses'] });
-      toast({ title: "Succès", description: "Statut du cours mis à jour." });
+      toast({ 
+        title: "Succès", 
+        description: "Statut du cours mis à jour.",
+        duration: 2000
+      });
     },
     onError: (error) => {
       toast({ 
@@ -1167,6 +1250,7 @@ export const CentralizedCourseManagement: React.FC = () => {
                                       toast({
                                         title: "Volumes mis à jour",
                                         description: "Les volumes de l'enseignant ont été mis à jour.",
+                                        duration: 2000
                                       });
                                     } catch (error: any) {
                                       toast({
@@ -1202,6 +1286,7 @@ export const CentralizedCourseManagement: React.FC = () => {
                                         toast({
                                           title: "Attribution supprimée",
                                           description: "L'attribution a été supprimée avec succès.",
+                                          duration: 2000
                                         });
                                         setIsAssignmentDialogOpen(false);
                                       } catch (error: any) {

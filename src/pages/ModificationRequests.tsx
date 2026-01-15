@@ -21,8 +21,9 @@ const ModificationRequests: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 12;
 
-  const { data: courses = [], isLoading } = useQuery({
-    queryKey: ['courses-modification', searchTerm, selectedFaculty],
+  // Pagination côté serveur avec comptage total
+  const { data: coursesData, isLoading } = useQuery({
+    queryKey: ['courses-modification', searchTerm, selectedFaculty, currentPage],
     queryFn: async () => {
       let query = supabase
         .from('courses')
@@ -49,7 +50,7 @@ const ModificationRequests: React.FC = () => {
               email
             )
           )
-        `);
+        `, { count: 'exact' });
 
       // Filtrer côté serveur
       if (selectedFaculty !== "all") {
@@ -59,23 +60,22 @@ const ModificationRequests: React.FC = () => {
         query = query.or(`title.ilike.%${searchTerm}%,code.ilike.%${searchTerm}%`);
       }
 
+      // Pagination côté serveur
+      const startIndex = (currentPage - 1) * itemsPerPage;
+      query = query.range(startIndex, startIndex + itemsPerPage - 1);
       query = query.order('title');
       
-      const { data, error } = await query;
+      const { data, error, count } = await query;
       if (error) throw error;
-      return data || [];
+      return { data: data || [], total: count || 0 };
     },
     staleTime: 30000, // Cache 30 secondes
   });
 
-  // Plus besoin de filtrage côté client
-  const filteredCourses = courses;
-
-  // Pagination
-  const totalItems = filteredCourses.length;
+  const courses = coursesData?.data || [];
+  const totalItems = coursesData?.total || 0;
   const totalPages = Math.ceil(totalItems / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedCourses = filteredCourses.slice(startIndex, startIndex + itemsPerPage);
+  const paginatedCourses = courses;
 
   const faculties = Array.from(new Set(courses.map(course => course.faculty)));
 
